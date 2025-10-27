@@ -58,10 +58,92 @@ func TestConcurrentOperations(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		got, found := c.Get(fmt.Sprintf("key%d", i))
 		if !found {
-			t.Errorf("expected to find key%d", i) // ✅ Changed to Errorf
+			t.Errorf("expected to find key%d", i)
 		}
 		if got != fmt.Sprintf("value%d", i) {
 			t.Errorf("expected 'value%d', got '%s'", i, got)
 		}
 	}
+}
+
+func TestConcurrentReadWrite(t *testing.T) {
+	c := New()
+	var wg sync.WaitGroup
+
+	// Pre-populate
+	for i := 0; i < 50; i++ {
+		c.Set(fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i))
+	}
+
+	// 50 goroutines writing
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				c.Set(fmt.Sprintf("key%d", id), fmt.Sprintf("value%d-%d", id, j))
+			}
+		}(i)
+	}
+
+	// 50 goroutines reading
+	for i := 0; i < 50; i++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			for j := 0; j < 100; j++ {
+				c.Get(fmt.Sprintf("key%d", id))
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	// If we got here without panic/race, it's thread-safe!
+}
+
+// Benchmarks
+// go test -bench=. -benchmem
+func BenchmarkCacheGet(b *testing.B) {
+	c := New()
+	c.Set("key", "value")
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			c.Get("key")
+		}
+	})
+}
+
+func BenchmarkCacheSet(b *testing.B) {
+	c := New()
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			c.Set("key", "value")
+		}
+	})
+}
+
+func BenchmarkCacheMixed(b *testing.B) {
+	c := New()
+	// Pre-populate
+	for i := 0; i < 100; i++ {
+		c.Set(fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i))
+	}
+
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		i := 0
+		for pb.Next() {
+			// 80% reads, 20% writes (realistic workload)
+			if i%5 == 0 {
+				c.Set(fmt.Sprintf("key%d", i%100), "value")
+			} else {
+				c.Get(fmt.Sprintf("key%d", i%100))
+			}
+			i++
+		}
+	})
 }

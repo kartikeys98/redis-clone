@@ -18,19 +18,32 @@ Format: `<Number> | <Files Changed> | <Summary of Action> | <Purpose of Action>`
 
 1 | internal/cache/cache.go | Implemented thread-safe cache with Get/Set/Delete operations | Create foundation for in-memory key-value store with concurrent access support using sync.RWMutex
 
-2 | internal/cache/cache_test.go | Added comprehensive unit tests (basic operations, non-existent keys, concurrent operations) | Ensure cache correctness and thread-safety, validate RWMutex prevents race conditions
+2 | internal/cache/cache_test.go | Added comprehensive unit tests and benchmarks | Ensure cache correctness and thread-safety, validate RWMutex prevents race conditions, measure performance
 
-**Status:** All tests passing, no race conditions detected, ready for Day 2
+**Tests Added:**
+- TestBasicOperations (set, get, delete)
+- TestGetNonExistent (edge cases)
+- TestConcurrentOperations (100 goroutines writing)
+- TestConcurrentReadWrite (50 readers + 50 writers)
+
+**Benchmarks:**
+- BenchmarkCacheGet: 122ns/op, 8.2M ops/sec
+- BenchmarkCacheSet: 79ns/op, 12.6M ops/sec
+- BenchmarkCacheMixed: 100ns/op, 10M ops/sec (80% read, 20% write)
+
+**Performance:** 10M ops/sec mixed workload, 0 allocations, thread-safe
 
 **Key Learnings:**
 - RWMutex allows concurrent reads, exclusive writes
 - WaitGroup coordinates concurrent goroutines
 - defer ensures locks are released (prevents deadlocks)
 - Race detector catches concurrency bugs
+- Benchmarking reveals real performance characteristics
+- Zero allocations = no GC pressure
 
 ---
 
-### Day 2: TCP Server (TODO)
+### Day 2: TCP Server (🚧 IN PROGRESS)
 
 *Will be logged as you implement...*
 

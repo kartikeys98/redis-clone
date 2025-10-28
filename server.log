@@ -1,0 +1,93 @@
+🚀 Starting Redis Clone...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📡 Server address: :6378
+📝 Supported commands:
+   - SET key value  : Store a key-value pair
+   - GET key        : Retrieve a value
+   - DEL key        : Delete a key
+   - KEYS           : List all keys
+   - SIZE           : Get cache size
+   - FLUSH          : Clear all data
+   - PING           : Test connection
+
+🔗 Connect with: nc localhost 6378
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2025/10/29 01:07:35 Server listening on :6378
+2025/10/29 01:07:38 New connection from [::1]:50594
+2025/10/29 01:07:38 [[::1]:50594] Command: PING
+2025/10/29 01:07:38 Connection closed from [::1]:50594
+2025/10/29 01:07:38 New connection from [::1]:50595
+2025/10/29 01:07:38 [[::1]:50595] Command: SET test value
+2025/10/29 01:07:38 Connection closed from [::1]:50595
+2025/10/29 01:07:38 New connection from [::1]:50596
+2025/10/29 01:07:38 [[::1]:50596] Command: DEL test
+2025/10/29 01:07:38 Connection closed from [::1]:50596
+2025/10/29 01:07:48 New connection from [::1]:50616
+2025/10/29 01:07:48 [[::1]:50616] Command: PING
+2025/10/29 01:07:48 Connection closed from [::1]:50616
+2025/10/29 01:07:48 New connection from [::1]:50617
+2025/10/29 01:07:48 [[::1]:50617] Command: SET user1 Alice
+2025/10/29 01:07:48 Connection closed from [::1]:50617
+2025/10/29 01:07:48 New connection from [::1]:50618
+2025/10/29 01:07:48 [[::1]:50618] Command: GET user1
+2025/10/29 01:07:48 Connection closed from [::1]:50618
+2025/10/29 01:07:48 New connection from [::1]:50619
+2025/10/29 01:07:48 [[::1]:50619] Command: SET greeting Hello World from Redis
+2025/10/29 01:07:48 Connection closed from [::1]:50619
+2025/10/29 01:07:49 New connection from [::1]:50620
+2025/10/29 01:07:49 [[::1]:50620] Command: GET greeting
+2025/10/29 01:07:49 Connection closed from [::1]:50620
+2025/10/29 01:07:49 New connection from [::1]:50621
+2025/10/29 01:07:49 [[::1]:50621] Command: SET user2 Bob
+2025/10/29 01:07:49 Connection closed from [::1]:50621
+2025/10/29 01:07:49 New connection from [::1]:50622
+2025/10/29 01:07:49 [[::1]:50622] Command: SET user3 Charlie
+2025/10/29 01:07:49 Connection closed from [::1]:50622
+2025/10/29 01:07:49 New connection from [::1]:50623
+2025/10/29 01:07:49 [[::1]:50623] Command: SET user4 David
+2025/10/29 01:07:49 Connection closed from [::1]:50623
+2025/10/29 01:07:49 New connection from [::1]:50624
+2025/10/29 01:07:49 [[::1]:50624] Command: KEYS
+2025/10/29 01:07:49 Connection closed from [::1]:50624
+2025/10/29 01:07:49 New connection from [::1]:50625
+2025/10/29 01:07:49 [[::1]:50625] Command: SIZE
+2025/10/29 01:07:49 Connection closed from [::1]:50625
+2025/10/29 01:07:49 New connection from [::1]:50626
+2025/10/29 01:07:49 [[::1]:50626] Command: DEL user2
+2025/10/29 01:07:49 Connection closed from [::1]:50626
+2025/10/29 01:07:49 New connection from [::1]:50627
+2025/10/29 01:07:49 [[::1]:50627] Command: GET user2
+2025/10/29 01:07:49 Connection closed from [::1]:50627
+2025/10/29 01:07:49 New connection from [::1]:50628
+2025/10/29 01:07:49 [[::1]:50628] Command: SIZE
+2025/10/29 01:07:49 Connection closed from [::1]:50628
+2025/10/29 01:07:49 New connection from [::1]:50629
+2025/10/29 01:07:49 [[::1]:50629] Command: GET nonexistent
+2025/10/29 01:07:49 Connection closed from [::1]:50629
+2025/10/29 01:07:49 New connection from [::1]:50630
+2025/10/29 01:07:49 [[::1]:50630] Command: set lowercase value
+2025/10/29 01:07:49 Connection closed from [::1]:50630
+2025/10/29 01:07:49 New connection from [::1]:50631
+2025/10/29 01:07:49 [[::1]:50631] Command: GET lowercase
+2025/10/29 01:07:49 Connection closed from [::1]:50631
+2025/10/29 01:07:49 New connection from [::1]:50632
+2025/10/29 01:07:49 [[::1]:50632] Command: del lowercase
+2025/10/29 01:07:49 Connection closed from [::1]:50632
+2025/10/29 01:07:49 New connection from [::1]:50633
+2025/10/29 01:07:49 [[::1]:50633] Command: INVALID
+2025/10/29 01:07:49 Connection closed from [::1]:50633
+2025/10/29 01:07:49 New connection from [::1]:50635
+2025/10/29 01:07:49 [[::1]:50635] Command: SET
+2025/10/29 01:07:49 Connection closed from [::1]:50635
+2025/10/29 01:07:49 New connection from [::1]:50636
+2025/10/29 01:07:49 [[::1]:50636] Command: GET
+2025/10/29 01:07:49 Connection closed from [::1]:50636
+2025/10/29 01:07:49 New connection from [::1]:50637
+2025/10/29 01:07:49 [[::1]:50637] Command: FLUSH
+2025/10/29 01:07:49 Connection closed from [::1]:50637
+2025/10/29 01:07:49 New connection from [::1]:50638
+2025/10/29 01:07:49 [[::1]:50638] Command: SIZE
+2025/10/29 01:07:49 Connection closed from [::1]:50638
+2025/10/29 01:07:49 New connection from [::1]:50639
+2025/10/29 01:07:49 [[::1]:50639] Command: KEYS
+2025/10/29 01:07:49 Connection closed from [::1]:50639

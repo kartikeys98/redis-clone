@@ -43,8 +43,42 @@ Format: `<Number> | <Files Changed> | <Summary of Action> | <Purpose of Action>`
 
 ---
 
-### Day 2: TCP Server (🚧 IN PROGRESS)
+### Day 2: TCP Server (✅ COMPLETED)
 
-*Will be logged as you implement...*
+3 | internal/cache/cache.go | Added Keys(), Flush(), Size() methods | Support cache inspection and management operations
+
+4 | internal/server/server.go | Built TCP server with 7 commands (SET, GET, DEL, KEYS, SIZE, FLUSH, PING) + logging | Enable network access to cache, support multiple concurrent clients, add observability
+
+5 | internal/server/server_test.go | Created 8 comprehensive server tests | Ensure server correctness, test concurrent connections, validate error handling
+
+6 | cmd/server/main.go | Improved startup with user-friendly messages | Better developer experience
+
+7 | test-server.sh | Created automated manual testing script | Quick validation of all features
+
+**Features Implemented:**
+- TCP server on port 6378 with goroutine-per-connection
+- 7 commands: SET, GET, DEL, KEYS, SIZE, FLUSH, PING
+- Connection logging (new connection, commands, close)
+- Error handling with proper error messages
+- Support for values with spaces
+- Case-insensitive commands
+- Comprehensive test coverage
+
+**Test Results:**
+- All server tests pass (8 tests)
+- No race conditions
+- Handles concurrent connections correctly
+
+**Key Learnings:**
+- TCP networking in Go (net package)
+- Goroutine-per-connection pattern
+- Protocol design decisions
+- Connection lifecycle management
+- Integration testing strategies
+- Server logging for observability
+
+---
+
+### Day 3: Load Testing & Performance Analysis (🚧 IN PROGRESS)
 
 

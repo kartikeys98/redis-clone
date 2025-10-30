@@ -1,0 +1,7 @@
+1. sync.RwMutex - RLock() vs Lock()
+2. TCP buffer - I was not reading from it which could accumulate
+3. atomic in go - goroutine safe operation, faster than mutex
+    // Assembly level:
+    // 1. READ:  Load stats.Errors into CPU register
+    // 2. ADD:   Increment register
+    // 3. WRITE: Store register back to memory

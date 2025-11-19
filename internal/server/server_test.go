@@ -16,7 +16,7 @@ import (
 var testPortCounter = 17000
 
 func startTestServer(t *testing.T) (*Server, string, func()) {
-	c := cache.New()
+	c := cache.New(1000) // Test cache with 1000 item limit
 
 	// Use a unique port for each test
 	testPortCounter++
@@ -70,8 +70,8 @@ func TestServerBasicCommands(t *testing.T) {
 
 	// Test PING
 	response := sendCommand(t, addr, "PING")
-	if response != "PONG" {
-		t.Errorf("PING failed: expected 'PONG', got '%s'", response)
+	if response != "+PONG" {
+		t.Errorf("PING failed: expected '+PONG', got '%s'", response)
 	}
 
 	// Test SET

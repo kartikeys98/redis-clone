@@ -12,11 +12,12 @@ Building a distributed Redis implementation from scratch in Go to learn:
 - Student writes code, you GUIDE and REVIEW
 - Ask guiding questions, don't give direct solutions
 - Review code for correctness, performance, edge cases
+- Update the vibing-history .md files after each day of work so that if a new chat is started, the context is clear.
 
 ## Current Progress
 **Week:** 2 - LRU Eviction + TTL  
-**Day:** 1 (LRU Data Structure) ✅ COMPLETED  
-**Next:** Integrate LRU with Cache
+**Day:** 2 (LRU + Cache Integration) ✅ COMPLETED  
+**Next:** TTL (Time-To-Live) Implementation
 
 Read these files for context:
 - `vibing-history/CURRENT-STATUS.md` - Quick status snapshot (START HERE!)
@@ -32,8 +33,8 @@ redis/
 │   └── loadtest/       # ✅ COMPLETED - Load testing tool
 ├── internal/
 │   ├── cache/
-│   │   ├── cache.go        # ✅ Thread-safe cache (needs LRU integration)
-│   │   ├── cache_test.go   # ✅ Unit tests + benchmarks
+│   │   ├── cache.go        # ✅ Thread-safe cache with LRU eviction
+│   │   ├── cache_test.go   # ✅ Unit tests + benchmarks + LRU tests
 │   │   ├── lru.go          # ✅ LRU doubly-linked list
 │   │   └── lru_test.go     # ✅ 15 comprehensive tests
 │   └── server/
@@ -51,7 +52,9 @@ redis/
 **Week 2 (IN PROGRESS):**
 - internal/cache/lru.go - LRU doubly-linked list (O(1) operations) ✅
 - internal/cache/lru_test.go - 15 passing tests ✅
-- Next: Integrate LRU with Cache for eviction policy
+- internal/cache/cache.go - LRU + Cache integration with eviction ✅
+- internal/cache/cache_test.go - 4 LRU eviction tests, 22 total tests ✅
+- Next: TTL (Time-To-Live) implementation
 
 ## What Student Learns From
 - Hands-on implementation
@@ -61,9 +64,25 @@ redis/
 
 ## Teaching Style
 - ✅ Explain WHY, not just HOW
-- ✅ Show real-world examples
-- ✅ Point out edge cases
+- ✅ Show real-world examples and patterns
+- ✅ Point out edge cases and trade-offs
 - ✅ Encourage experimentation
-- ❌ Don't write code unless explicitly asked
-- ❌ Don't skip explaining concepts
 
+**Guidance Approach:**
+1. **First**: Ask guiding questions, let student think
+2. **If stuck**: Provide pseudocode or architectural hints
+3. **If still stuck**: Show reference implementation WITH detailed explanation
+4. **Always**: Review student's code for learning opportunities
+5. **Add only important questions/notes briefly in NOTES file**
+
+**Code Examples:**
+- ✅ Show after student attempts (for comparison/learning)
+- ✅ Demonstrate best practices and patterns
+- ✅ Illustrate complex concepts that are hard to explain
+- ❌ Don't write production code without student trying first
+- ❌ Don't skip the struggle phase - it's where learning happens
+
+**Check Understanding:**
+- Ask student to explain concepts back
+- Verify comprehension before advancing
+- Connect new concepts to previous learning

@@ -1,13 +1,13 @@
 # Current Status - Quick Context for New Conversations
 
-**Last Updated:** Week 2, Day 1 (LRU) Completed
+**Last Updated:** Week 2, Day 2 (LRU Integration) Completed
 
 ---
 
 ## 🎯 Where We Are
 
 **Current Week:** Week 2 - LRU Eviction + TTL  
-**Current Day:** Day 1 ✅ LRU Data Structure COMPLETED - Ready to integrate with Cache!  
+**Current Day:** Day 2 ✅ LRU + Cache Integration COMPLETED - Ready for TTL!  
 **Role:** Instructor mode - Student codes, I guide and review
 
 ---
@@ -77,43 +77,105 @@ type LRUList struct {
 - Importance of edge case testing
 - O(1) cache operations with proper design
 
+**Day 2: LRU + Cache Integration ✅ COMPLETED**
+
+**Files:**
+- `internal/cache/cache.go` - Updated with LRU integration
+- `internal/cache/cache_test.go` - Added 4 LRU eviction tests
+- `cmd/server/main.go` - Updated cache.New(10000)
+- `internal/server/server_test.go` - Updated cache.New(1000)
+
+**Implementation:**
+```go
+type CacheEntry struct {
+    Value   string
+    lruNode *Node  // Pointer to LRU list position
+}
+
+type Cache struct {
+    data    map[string]*CacheEntry
+    lock    sync.RWMutex
+    maxSize int       // 0 = unlimited
+    lruList *LRUList
+}
+
+func New(maxSize int) *Cache {
+    if maxSize < 0 {
+        panic("cache: maxSize cannot be negative")
+    }
+    // maxSize = 0 means unlimited
+    return &Cache{...}
+}
+```
+
+**Key Operations:**
+- `Set()`: Checks for existing key, evicts if full, then adds to front
+- `Get()`: Uses write lock, moves node to front (marks as recently used)
+- `Delete()`: Removes from both HashMap and LRU list
+
+**Tests:**
+- ✅ 4 LRU eviction tests (basic, Get affects order, update doesn't evict)
+- ✅ 22/22 tests passing across entire project
+- ✅ 0 race conditions
+- ✅ Server integration tests passing
+
+**Performance:**
+- Get: 32ns/op (0 allocs)
+- Set: 37ns/op (0 allocs)
+- Mixed: 89ns/op
+
+**Key Concepts Learned:**
+- HashMap → LRU pointer direction for O(1) operations
+- Single shared lock prevents data structure drift
+- Write lock in Get() maintains accurate LRU order
+- Eviction timing: check existing before evicting
+- Defensive programming with panic checks
+
 ---
 
 ## 🚀 What's Next
 
-### Day 2 (Week 2): Integrate LRU with Cache
-**Goal:** Add memory limits and LRU eviction to existing cache
+### Day 3 (Week 2): TTL (Time-To-Live) Implementation
+**Goal:** Add expiration timestamps and automatic cleanup for keys
 
 **What to implement:**
-1. Create `CacheEntry` struct:
+1. Add expiration to `CacheEntry`:
 ```go
 type CacheEntry struct {
-    Value   string
-    LRUNode *Node  // Pointer to position in LRU list
+    Value      string
+    lruNode    *Node
+    ExpiresAt  time.Time  // New: expiration timestamp
 }
 ```
 
-2. Update `Cache` struct:
+2. Update `Set()` to support TTL:
 ```go
-type Cache struct {
-    mu      sync.RWMutex
-    data    map[string]*CacheEntry  // Changed from map[string]string
-    lruList *LRUList
-    maxSize int  // New: memory limit
+// New method signature
+func (c *Cache) SetWithTTL(key, value string, ttl time.Duration) {
+    // Set entry with ExpiresAt = time.Now().Add(ttl)
 }
 ```
 
-3. Update operations:
-- `Set()`: Add to LRU front, evict if full
-- `Get()`: Move to LRU front (mark as recently used)
-- `Delete()`: Remove from both map and LRU list
+3. Implement passive expiration:
+- `Get()`: Check if key expired, return nil and delete if so
+- Lazy cleanup on access
 
-4. Add tests:
-- Eviction behavior (maxSize enforcement)
-- LRU ordering (least recently used gets evicted)
-- Integration tests (cache + LRU working together)
+4. Implement active expiration:
+- Background goroutine that periodically scans
+- Removes expired keys proactively
+- Use ticker for periodic cleanup
 
-**Reference:** `vibing-history/week1-day-by-day.md` has basic guide, but Week 2 guide coming!
+5. Update server protocol:
+- `SET key value EX seconds` - set with TTL
+- Backward compatible with existing `SET key value`
+
+6. Add tests:
+- Keys expire after TTL
+- Passive expiration (Get returns nil for expired)
+- Active cleanup runs in background
+- TTL works with LRU eviction
+
+**This combines two expiration strategies used by Redis!**
 
 ---
 

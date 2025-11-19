@@ -47,9 +47,9 @@ func (l *LRUList) MoveToFront(node *Node) {
 	l.Head = node
 }
 
-func (l *LRUList) RemoveLRU() string {
+func (l *LRUList) RemoveLRU() *Node {
 	if l.Tail == nil {
-		return ""
+		return nil
 	}
 	node := l.Tail
 	l.Tail = node.Prev
@@ -61,8 +61,7 @@ func (l *LRUList) RemoveLRU() string {
 	node.Prev = nil
 	node.Next = nil
 	l.Size--
-	key := node.Key
-	return key
+	return node
 }
 
 func (l *LRUList) Remove(node *Node) {

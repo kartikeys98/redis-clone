@@ -12,8 +12,8 @@ func main() {
 	fmt.Println("🚀 Starting Redis Clone...")
 	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 
-	// Create cache
-	c := cache.New()
+	// Create cache with 10,000 item limit
+	c := cache.New(10000)
 
 	// Create server
 	addr := ":6378"

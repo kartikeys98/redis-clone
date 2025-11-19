@@ -82,10 +82,10 @@ func TestAddToFront_MultipleNodes(t *testing.T) {
 func TestRemoveLRU_EmptyList(t *testing.T) {
 	list := &LRUList{}
 
-	key := list.RemoveLRU()
+	node := list.RemoveLRU()
 
-	if key != "" {
-		t.Errorf("Expected empty string, got '%s'", key)
+	if node != nil {
+		t.Errorf("expected nil, got %#v", node)
 	}
 	if list.Size != 0 {
 		t.Errorf("Size should remain 0, got %d", list.Size)
@@ -96,14 +96,15 @@ func TestRemoveLRU_SingleNode(t *testing.T) {
 	list := &LRUList{}
 	list.AddToFront("only")
 
-	key := list.RemoveLRU()
+	node := list.RemoveLRU()
 
-	// Verify returned key
-	if key != "only" {
-		t.Errorf("Expected 'only', got '%s'", key)
+	if node == nil {
+		t.Fatal("expected a node, got nil")
+	}
+	if node.Key != "only" {
+		t.Errorf("Expected 'only', got '%s'", node.Key)
 	}
 
-	// THIS WAS YOUR BUG - verify both Head and Tail are nil!
 	if list.Head != nil {
 		t.Error("Head should be nil after removing only node")
 	}
@@ -123,10 +124,13 @@ func TestRemoveLRU_MultipleNodes(t *testing.T) {
 
 	// List: C -> B -> A
 	// Remove A (tail)
-	key := list.RemoveLRU()
+	node := list.RemoveLRU()
 
-	if key != "A" {
-		t.Errorf("Expected 'A', got '%s'", key)
+	if node == nil {
+		t.Fatal("expected a node, got nil")
+	}
+	if node.Key != "A" {
+		t.Errorf("Expected 'A', got '%s'", node.Key)
 	}
 	if list.Tail.Key != "B" {
 		t.Errorf("New tail should be B, got %s", list.Tail.Key)
@@ -139,9 +143,12 @@ func TestRemoveLRU_MultipleNodes(t *testing.T) {
 	}
 
 	// Remove B (new tail)
-	key = list.RemoveLRU()
-	if key != "B" {
-		t.Errorf("Expected 'B', got '%s'", key)
+	node = list.RemoveLRU()
+	if node == nil {
+		t.Fatal("expected a node, got nil")
+	}
+	if node.Key != "B" {
+		t.Errorf("Expected 'B', got '%s'", node.Key)
 	}
 	if list.Tail.Key != "C" {
 		t.Errorf("New tail should be C, got %s", list.Tail.Key)
@@ -157,7 +164,7 @@ func TestRemoveLRU_MultipleNodes(t *testing.T) {
 
 func TestMoveToFront_AlreadyAtHead(t *testing.T) {
 	list := &LRUList{}
-	nodeA := list.AddToFront("A")
+	tail := list.AddToFront("A")
 	list.AddToFront("B")
 	list.AddToFront("C")
 
@@ -172,6 +179,9 @@ func TestMoveToFront_AlreadyAtHead(t *testing.T) {
 	}
 	if list.Head.Key != "C" {
 		t.Errorf("Head should still be C, got %s", list.Head.Key)
+	}
+	if list.Tail != tail {
+		t.Error("Tail should remain A")
 	}
 }
 
@@ -259,7 +269,6 @@ func TestRemove_SingleNode(t *testing.T) {
 
 	list.Remove(node)
 
-	// THIS WAS YOUR OTHER BUG
 	if list.Head != nil {
 		t.Error("Head should be nil")
 	}
@@ -347,7 +356,7 @@ func TestRemove_Middle(t *testing.T) {
 func TestComplexScenario(t *testing.T) {
 	list := &LRUList{}
 
-	// Build: A -> B -> C
+	// Build the list by pushing nodes: C -> B -> A
 	nodeA := list.AddToFront("A")
 	nodeB := list.AddToFront("B")
 	nodeC := list.AddToFront("C")
@@ -365,26 +374,26 @@ func TestComplexScenario(t *testing.T) {
 	}
 
 	// RemoveLRU (remove B): A
-	key := list.RemoveLRU()
-	if key != "B" {
-		t.Errorf("Should remove B, got %s", key)
+	node := list.RemoveLRU()
+	if node != nodeB {
+		t.Errorf("Expected to remove B, got %v", node)
 	}
 	if list.Head != list.Tail {
 		t.Error("With one node, Head should equal Tail")
 	}
 
 	// RemoveLRU (remove A): empty
-	key = list.RemoveLRU()
-	if key != "A" {
-		t.Errorf("Should remove A, got %s", key)
+	node = list.RemoveLRU()
+	if node != nodeA {
+		t.Errorf("Expected to remove A, got %v", node)
 	}
 	if list.Head != nil || list.Tail != nil {
 		t.Error("List should be empty")
 	}
 
-	// RemoveLRU on empty: should not crash
-	key = list.RemoveLRU()
-	if key != "" {
-		t.Errorf("Should return empty string, got %s", key)
+	// RemoveLRU on empty: should return nil
+	node = list.RemoveLRU()
+	if node != nil {
+		t.Errorf("Expected nil, got %v", node)
 	}
 }

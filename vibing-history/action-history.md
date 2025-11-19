@@ -151,4 +151,52 @@ Format: `<Number> | <Files Changed> | <Summary of Action> | <Purpose of Action>`
 - How LRU and HashMap integrate via pointers
 - O(1) cache operations with proper data structure design
 
+---
+
+### Day 2 (Week 2): Integrate LRU with Cache (✅ COMPLETED)
+
+11 | internal/cache/cache.go | Integrated LRU list with Cache for memory limits and automatic eviction | Enable O(1) cache operations with LRU eviction policy when maxSize is reached
+
+12 | internal/cache/cache_test.go | Added 4 comprehensive LRU eviction tests | Ensure eviction correctness, test LRU ordering, verify Get() affects eviction order
+
+13 | cmd/server/main.go, internal/server/server_test.go | Updated cache.New() calls to pass maxSize parameter | Fix compilation after cache constructor signature change
+
+**Features Implemented:**
+- `CacheEntry` struct linking values to LRU nodes
+- Updated `Cache` struct with `lruList *LRUList` and `maxSize int` fields
+- Constructor `New(maxSize int)` with validation (panic on negative, 0 = unlimited)
+- `Set()` with eviction logic: checks for existing key, evicts if full, then adds
+- `Get()` uses write lock and moves node to front (marks as recently used)
+- `Delete()` removes from both HashMap and LRU list
+- Defensive panic checks for data structure corruption
+
+**Test Coverage:**
+- TestCacheWithLRU_BasicEviction: Verifies oldest item evicted when full
+- TestCacheWithLRU_GetAffectsEviction: Confirms Get() updates LRU order
+- TestCacheWithLRU_UpdateDoesntEvict: Ensures updating existing key doesn't evict
+- TestCacheWithLRU_UpdateExistingKey: Validates Set() on existing key behavior
+- All 22 tests passing (cache + server + LRU)
+- 0 race conditions detected
+
+**Performance Results:**
+- Get: 32ns/op (down from 120ns despite write lock!)
+- Set: 37ns/op
+- Mixed (80/20 read/write): 89ns/op
+- Still 0 allocations per operation
+
+**Key Design Decisions:**
+- Single shared lock (prevents HashMap/LRU drift)
+- Write lock in Get() for accurate LRU tracking (correctness over speed)
+- HashMap → LRU pointer direction (enables O(1) MoveToFront)
+- Evict-then-add pattern (prevents temporary size overflow)
+- maxSize = 0 means unlimited (explicit design choice)
+
+**Key Learnings:**
+- Why pointer direction matters in data structure integration
+- Thread safety trade-offs: one lock vs two locks
+- Eviction timing: check existing key before evicting
+- Write lock in Get() is necessary for accurate LRU
+- Defensive programming with panic checks catches bugs early
+- Performance can improve with better memory locality
+
 

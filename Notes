@@ -17,4 +17,6 @@
     So parallel is:
     ❌ Slower per operation (individual latency)
     ✅ Faster overall (total throughput)
-5.
+5. Benchmarking tests.
+6. Race condition test with --race flag.
+

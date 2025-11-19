@@ -7,7 +7,7 @@ import (
 )
 
 func TestBasicOperations(t *testing.T) {
-	c := New()
+	c := New(1000)
 
 	// Test SET and GET
 	c.Set("key1", "value1")
@@ -33,7 +33,7 @@ func TestBasicOperations(t *testing.T) {
 }
 
 func TestGetNonExistent(t *testing.T) {
-	c := New()
+	c := New(1000)
 
 	// Get a key that was never set
 	_, found := c.Get("nonexistent")
@@ -43,7 +43,7 @@ func TestGetNonExistent(t *testing.T) {
 }
 
 func TestConcurrentOperations(t *testing.T) {
-	c := New()
+	c := New(1000)
 	var wg sync.WaitGroup
 
 	for i := 0; i < 100; i++ {
@@ -67,7 +67,7 @@ func TestConcurrentOperations(t *testing.T) {
 }
 
 func TestConcurrentReadWrite(t *testing.T) {
-	c := New()
+	c := New(1000)
 	var wg sync.WaitGroup
 
 	// Pre-populate
@@ -101,10 +101,142 @@ func TestConcurrentReadWrite(t *testing.T) {
 	// If we got here without panic/race, it's thread-safe!
 }
 
+// Test 1: Basic Eviction
+// Verifies that when cache is full, adding a new key evicts the oldest (LRU) key
+func TestCacheWithLRU_BasicEviction(t *testing.T) {
+	c := New(3)
+	c.Set("A", "A")
+	c.Set("B", "B")
+	c.Set("C", "C")
+	// Cache is now full (3 items)
+	c.Set("D", "D") // Should evict "A" (oldest)
+
+	// Verify A was evicted
+	_, found := c.Get("A")
+	if found {
+		t.Error("expected A to be evicted")
+	}
+
+	// Verify B, C, D still exist
+	for _, key := range []string{"B", "C", "D"} {
+		val, found := c.Get(key)
+		if !found {
+			t.Errorf("expected %s to exist after eviction", key)
+		}
+		if val != key {
+			t.Errorf("expected %s to have value %s, got %s", key, key, val)
+		}
+	}
+}
+
+// Test 2: LRU Order (Get affects eviction)
+// Verifies that Get operations update the LRU order, affecting which key gets evicted
+func TestCacheWithLRU_GetAffectsEviction(t *testing.T) {
+	c := New(3)
+	c.Set("A", "A")
+	c.Set("B", "B")
+	c.Set("C", "C")
+	// Cache is full: A (oldest) -> B -> C (newest)
+
+	// Get("A") makes A the most recently used
+	c.Get("A")
+	// Order is now: B (oldest) -> C -> A (newest)
+
+	// Adding D should evict B (now oldest), not A
+	c.Set("D", "D")
+
+	// Verify B was evicted
+	_, found := c.Get("B")
+	if found {
+		t.Error("expected B to be evicted (was oldest after Get(A))")
+	}
+
+	// Verify A, C, D still exist
+	for _, key := range []string{"A", "C", "D"} {
+		val, found := c.Get(key)
+		if !found {
+			t.Errorf("expected %s to exist after eviction", key)
+		}
+		if val != key {
+			t.Errorf("expected %s to have value %s, got %s", key, key, val)
+		}
+	}
+}
+
+// Test 3: Update doesn't evict
+// Verifies that updating an existing key (Set on existing key) doesn't cause eviction
+// and that Get operations correctly affect which key gets evicted
+func TestCacheWithLRU_UpdateDoesntEvict(t *testing.T) {
+	c := New(3)
+	c.Set("A", "A")
+	c.Set("B", "B")
+	c.Set("C", "C")
+	// Cache is full: A (oldest) -> B -> C (newest)
+
+	// Get("A") makes A most recent
+	c.Get("A")
+	// Order is now: B (oldest) -> C -> A (newest)
+
+	// Set("D") should evict B (now oldest), not A
+	c.Set("D", "D")
+
+	// Verify B was evicted
+	_, found := c.Get("B")
+	if found {
+		t.Error("expected B to be evicted (was oldest after Get(A))")
+	}
+
+	// Verify A, C, D exist
+	for _, key := range []string{"A", "C", "D"} {
+		val, found := c.Get(key)
+		if !found {
+			t.Errorf("expected %s to exist after eviction", key)
+		}
+		if val != key {
+			t.Errorf("expected %s to have value %s, got %s", key, key, val)
+		}
+	}
+}
+
+// Test 4: Multiple evictions
+// Verifies that updating an existing key doesn't cause eviction
+func TestCacheWithLRU_UpdateExistingKey(t *testing.T) {
+	c := New(3)
+	c.Set("A", "A")
+	c.Set("B", "B")
+	c.Set("C", "C")
+	// Cache is full: A (oldest) -> B -> C (newest)
+
+	// Update existing key B - should not evict anything
+	c.Set("B", "updated")
+
+	// Verify all three keys still exist
+	keys := []string{"A", "B", "C"}
+	for _, key := range keys {
+		val, found := c.Get(key)
+		if !found {
+			t.Errorf("expected %s to exist after update", key)
+		}
+		if key == "B" && val != "updated" {
+			t.Errorf("expected B to have value 'updated', got %s", val)
+		} else if key != "B" && val != key {
+			t.Errorf("expected %s to have value %s, got %s", key, key, val)
+		}
+	}
+
+	// Verify cache size is still 3
+	if c.Size() != 3 {
+		t.Errorf("expected cache size to be 3, got %d", c.Size())
+	}
+}
+
+///////////////////////////////
 // Benchmarks
+///////////////////////////////
+
 // go test -bench=. -benchmem
 func BenchmarkCacheGet(b *testing.B) {
-	c := New()
+	c := New(1000)
 	c.Set("key", "value")
 
 	b.ResetTimer()
@@ -116,7 +248,7 @@ func BenchmarkCacheGet(b *testing.B) {
 }
 
 func BenchmarkCacheSet(b *testing.B) {
-	c := New()
+	c := New(1000)
 
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -127,7 +259,7 @@ func BenchmarkCacheSet(b *testing.B) {
 }
 
 func BenchmarkCacheMixed(b *testing.B) {
-	c := New()
+	c := New(1000)
 	// Pre-populate
 	for i := 0; i < 100; i++ {
 		c.Set(fmt.Sprintf("key%d", i), fmt.Sprintf("value%d", i))

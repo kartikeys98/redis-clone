@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestBasicOperations(t *testing.T) {
@@ -229,6 +230,135 @@ func TestCacheWithLRU_UpdateExistingKey(t *testing.T) {
 		t.Errorf("expected cache size to be 3, got %d", c.Size())
 	}
 }
+
+// Test 5: TTL Basic Expiration
+// Verifies that a key expires after the TTL
+func TestTTL_BasicExpiration(t *testing.T) {
+    c := New(10)
+    c.SetWithTTL("key", "value", 100*time.Millisecond)
+    
+    // Should exist immediately
+    val, found := c.Get("key")
+    if !found || val != "value" {
+        t.Error("key should exist before expiration")
+    }
+    
+    // Wait for expiration
+    time.Sleep(150 * time.Millisecond)
+    
+    // Should be gone
+    _, found = c.Get("key")
+    if found {
+        t.Error("key should be expired")
+    }
+}
+
+// Test 6: Set without TTL
+// Verifies that a key without a TTL does not expire
+func TestTTL_SetWithoutTTL(t *testing.T) {
+    c := New(10)
+    c.Set("key", "value")  // No TTL
+    
+    time.Sleep(100 * time.Millisecond)
+    
+    // Should still exist (no expiration)
+    val, found := c.Get("key")
+    if !found || val != "value" {
+        t.Error("key without TTL should not expire")
+    }
+}
+
+// Test 7: Set with TTL and update without TTL clears TTL
+// Verifies that a key with a TTL set and updated without a TTL clears the TTL
+func TestTTL_SetWithTTLAndUpdateWithoutTTLClearsTTL(t *testing.T) {
+    c := New(10)
+    c.SetWithTTL("key", "value1", 100*time.Millisecond)
+    c.Set("key", "value2")  // Update without TTL
+    
+    time.Sleep(150 * time.Millisecond)
+    
+    // Should still exist (TTL was cleared)
+    val, found := c.Get("key")
+    if !found || val != "value2" {
+        t.Error("updated key should not expire when TTL cleared")
+    }
+}
+
+// Test 8: Set with TTL and update with new TTL
+// Verifies that a key with a TTL set and updated with a new TTL extends the TTL
+func TestTTL_UpdateWithNewTTL(t *testing.T) {
+    c := New(10)
+    c.SetWithTTL("key", "value1", 500*time.Millisecond)
+    c.SetWithTTL("key", "value2", 100*time.Millisecond)  // Shorter TTL
+    
+    time.Sleep(150 * time.Millisecond)
+    
+    // Should be expired (new TTL applied)
+    _, found := c.Get("key")
+    if found {
+        t.Error("key should expire with new shorter TTL")
+    }
+}
+
+// Test 9: Keys filters expired keys
+func TestTTL_KeysFiltersExpired(t *testing.T) {
+    c := New(10)
+    c.Set("permanent", "value")
+    c.SetWithTTL("temporary", "value", 50*time.Millisecond)
+    
+    time.Sleep(100 * time.Millisecond)
+    
+    keys := c.Keys()
+    if len(keys) != 1 || keys[0] != "permanent" {
+        t.Errorf("Keys() should only return non-expired keys, got %v", keys)
+    }
+}
+
+// Test 10: Expired evicted before LRU
+// Verifies that expired keys are evicted before the least recently used key
+func TestTTL_ExpiredEvictedBeforeLRU(t *testing.T) {
+    c := New(3)
+    c.SetWithTTL("A", "1", 50*time.Millisecond)  // Will expire
+    c.Set("B", "2")  // Permanent
+    c.Set("C", "3")  // Permanent
+    
+    time.Sleep(100 * time.Millisecond)  // A expires
+    
+    c.Set("D", "4")  // Should evict expired A, not B
+    
+    // B and C should still exist (A was evicted, not them)
+    if _, found := c.Get("B"); !found {
+        t.Error("B should still exist")
+    }
+    if _, found := c.Get("C"); !found {
+        t.Error("C should still exist")
+    }
+    if _, found := c.Get("D"); !found {
+        t.Error("D should exist")
+    }
+}
+
+// Test 11: Multiple expired evicted
+// Verifies that expired keys are evicted before the least recently used key
+func TestTTL_MultipleExpiredEvicted(t *testing.T) {
+    c := New(3)
+    c.SetWithTTL("A", "1", 50*time.Millisecond)  // Will expire
+    c.SetWithTTL("B", "2", 50*time.Millisecond)  // Will expire
+    c.Set("C", "3")  // Permanent
+    
+    time.Sleep(100 * time.Millisecond)  // A and B expire
+    
+    c.Set("D", "4")  // Should evict expired A and B, not C
+    
+    // C should still exist (A and B were evicted, not them)
+    if _, found := c.Get("C"); !found {
+        t.Error("C should still exist")
+    }
+    if _, found := c.Get("D"); !found {
+        t.Error("D should exist")
+    }
+}
+
 
 ///////////////////////////////
 // Benchmarks

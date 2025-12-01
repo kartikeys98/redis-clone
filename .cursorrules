@@ -14,6 +14,75 @@ Building a distributed Redis implementation from scratch in Go to learn:
 - Review code for correctness, performance, edge cases
 - Update the vibing-history .md files after each day of work so that if a new chat is started, the context is clear.
 
+## Documentation Updates (Can use cheaper model)
+
+At end of each day/session:
+1. Update `vibing-history/action-history.md`:
+   - Add numbered entry with files changed
+   - Summarize what was implemented
+   - List key learnings
+
+2. Update `vibing-history/CURRENT-STATUS.md`:
+   - Update "Last Updated" date
+   - Update "Current Day" status
+   - Move completed items from "What's Next" to "What's Been Completed"
+   - Update "Next" section with tomorrow's task
+
+3. Update `.cursorrules`:
+   - Update "Current Progress" section (Week/Day/Next)
+   - Update "Completed Components" section
+   - Keep status in sync with CURRENT-STATUS.md
+
+Template for action-history.md entry:
+```
+## | <files> | <what changed> | <why/purpose>
+
+**Features Implemented:**
+- <bullet list>
+
+**Tests:**
+- <test coverage>
+
+**Key Learnings:**
+- <concepts mastered>
+```
+
+**Instructions:**
+- These are MECHANICAL updates, not creative
+- Follow existing format exactly
+- Copy relevant info from conversation
+- Use cheap model (GPT-4o-mini or Claude Haiku) for these updates
+
+## Cost Optimization Strategy
+
+**Use Expensive Model (Claude Sonnet 4.5) for:**
+- ✅ Complex code reviews with learning opportunities
+- ✅ Architecture/design discussions
+- ✅ Debugging complex issues
+- ✅ Teaching new concepts
+- ✅ Design trade-off discussions
+- ✅ Understanding "why" questions
+
+**Use Cheaper Model (GPT-4o-mini, Claude Haiku) for:**
+- ✅ Documentation updates (mechanical, follow template)
+- ✅ Simple refactoring (rename, move files)
+- ✅ Formatting/style fixes
+- ✅ End-of-day summaries
+- ✅ Running tests and reporting results
+- ✅ Simple boilerplate code
+
+**Use Browser Claude (Free) for:**
+- ✅ Conceptual "what is X?" questions
+- ✅ Reading about distributed systems theory
+- ✅ Interview prep discussions
+- ✅ Deep dives into algorithms
+- ✅ No code context needed
+
+**Workflow:**
+1. Code/learn with expensive model during active session
+2. At end of session, switch to cheaper model for documentation
+3. Use browser Claude for theory/concepts (saves Cursor credits)
+
 ## Current Progress
 **Week:** 2 - LRU Eviction + TTL  
 **Day:** 2 (LRU + Cache Integration) ✅ COMPLETED  

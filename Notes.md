@@ -19,4 +19,6 @@
     ✅ Faster overall (total throughput)
 5. Benchmarking tests.
 6. Race condition test with --race flag.
-
+7. ExpiresAt - time.Time vs ExpiresAt - *time.Time. 
+    pointer is less efficient than value as it requires extra 8 bytes and pointers are stored in heap which is slower than stack.
+8. Go mutexes are NOT reentrant! You can't lock the same mutex twice from the same goroutine. What i was doing - locking in GET() and DELETE() both and GET() calls DELETE() resulting in deadlock. 

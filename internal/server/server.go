@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/kartikey-singh/redis/internal/cache"
 )
@@ -67,8 +69,24 @@ func (s *Server) handleConnection(conn net.Conn) {
 				continue
 			}
 			key := parts[1]
-			value := strings.Join(parts[2:], " ") // Support spaces in values
-			s.cache.Set(key, value)
+			var value string
+			var ttl time.Duration
+			
+			// Check for TTL
+			if len(parts) >= 5 && strings.ToUpper(parts[len(parts)-2]) == "EX" {
+				ttlValue := parts[len(parts)-1]
+				t, err := strconv.Atoi(ttlValue)
+				if err != nil || t <= 0 {
+					conn.Write([]byte("ERR invalid TTL value\n"))
+					continue
+				}
+				value = strings.Join(parts[2:len(parts)-2], " ")
+				ttl = time.Duration(t) * time.Second
+			} else {
+				value = strings.Join(parts[2:], " ")
+				ttl = 0
+			}
+			s.cache.SetWithTTL(key, value, ttl)
 			conn.Write([]byte("+OK\n"))
 
 		case "GET":

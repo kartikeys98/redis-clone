@@ -34,7 +34,8 @@ func startTestServer(t *testing.T) (*Server, string, func()) {
 
 	// Cleanup function
 	cleanup := func() {
-		// Server will clean up on its own when test ends
+		srv.cache.Flush()
+		close(done)
 	}
 
 	return srv, addr, cleanup
@@ -274,5 +275,17 @@ func TestServerCaseInsensitivity(t *testing.T) {
 	response = sendCommand(t, addr, "DeL mykey")
 	if !strings.Contains(response, "OK") {
 		t.Errorf("Mixed case DEL failed: got '%s'", response)
+	}
+}
+
+func TestServerTTL(t *testing.T) {
+	srv, addr, cleanup := startTestServer(t)
+	defer cleanup()
+	_ = srv
+
+	// Test SET with TTL
+	response := sendCommand(t, addr, "SET key value EX 10")
+	if !strings.Contains(response, "OK") {
+		t.Errorf("SET with TTL failed: got '%s'", response)
 	}
 }

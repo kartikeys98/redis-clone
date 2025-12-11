@@ -21,7 +21,7 @@ func startTestServer(t *testing.T) (*Server, string, func()) {
 	// Use a unique port for each test
 	testPortCounter++
 	addr := fmt.Sprintf("localhost:%d", testPortCounter)
-	srv := New(addr, c)
+	srv := New(addr, c, "standalone", "", 0)
 
 	// Start server in goroutine
 	done := make(chan error, 1)

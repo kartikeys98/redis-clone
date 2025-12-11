@@ -22,3 +22,14 @@
 7. ExpiresAt - time.Time vs ExpiresAt - *time.Time. 
     pointer is less efficient than value as it requires extra 8 bytes and pointers are stored in heap which is slower than stack.
 8. Go mutexes are NOT reentrant! You can't lock the same mutex twice from the same goroutine. What i was doing - locking in GET() and DELETE() both and GET() calls DELETE() resulting in deadlock. 
+9. Snapshot under lock pattern: 
+    Acquire lock
+    Make a shallow copy of the data structure
+    Release lock immediately
+    Work with the copy
+    eg: 
+    m.mu.RLock()
+	slaves := make([]*SlaveConnection, len(m.slaves))
+	copy(slaves, m.slaves)
+	m.mu.RUnlock()
+10. ticker := time.NewTicker(10 * time.Second) & <-ticker.C

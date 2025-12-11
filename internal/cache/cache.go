@@ -6,29 +6,60 @@ import (
 )
 
 type Cache struct {
-	data map[string]*CacheEntry
-	lock sync.RWMutex
-	maxSize int
-	lruList *LRUList
+	data        map[string]*CacheEntry
+	lock        sync.RWMutex
+	maxSize     int
+	lruList     *LRUList
+	stopCleanup chan struct{} // Channel to signal background cleanup goroutine to stop
 }
 
 type CacheEntry struct {
-	Value string
-	lruNode *Node
+	Value      string
+	lruNode    *Node
 	ExpiryTime time.Time
 }
 
 func New(maxSize int) *Cache {
 	if maxSize < 0 {
-        panic("cache: maxSize cannot be negative")
-    }
+		panic("cache: maxSize cannot be negative")
+	}
 	cache := &Cache{
-		data: make(map[string]*CacheEntry),
-		lock: sync.RWMutex{},
+		data:    make(map[string]*CacheEntry),
+		lock:    sync.RWMutex{},
 		maxSize: maxSize,
 		lruList: &LRUList{},
+		stopCleanup: make(chan struct{}),
 	}
+	go cache.backgroundCleanup()
 	return cache
+}
+
+func (c *Cache) backgroundCleanup() {
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			c.cleanupExpiredKeys()
+		case <-c.stopCleanup:
+			return
+		}
+	}
+}
+
+func (c *Cache) cleanupExpiredKeys() {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+	// Check if any TTL is expired - if so, delete the key
+	for key, entry := range c.data {
+		if entry.ExpiryTime.Before(time.Now()) && !entry.ExpiryTime.IsZero() {
+			c.deleteWithoutLocking(key)
+		}
+	}
+}
+
+func (c *Cache) Close() {
+	close(c.stopCleanup)
 }
 
 func (c *Cache) Get(key string) (string, bool) {
@@ -81,8 +112,8 @@ func (c *Cache) SetWithTTL(key string, value string, ttl time.Duration) {
 		expiresAt = time.Now().Add(ttl)
 	}
 	c.data[key] = &CacheEntry{
-		Value: value,
-		lruNode: c.lruList.AddToFront(key),
+		Value:      value,
+		lruNode:    c.lruList.AddToFront(key),
 		ExpiryTime: expiresAt,
 	}
 }

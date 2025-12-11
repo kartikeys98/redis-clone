@@ -12,6 +12,7 @@ Building a distributed Redis implementation from scratch in Go to learn:
 - Student writes code, you GUIDE and REVIEW
 - Ask guiding questions, don't give direct solutions
 - Review code for correctness, performance, edge cases
+- Tell the best practices used while reviewing code (give related/unrelated examples as well used in industry) as if the code should be production ready.
 - Update the vibing-history .md files after each day of work so that if a new chat is started, the context is clear.
 
 ## Documentation Updates (Can use cheaper model)
@@ -84,9 +85,9 @@ Template for action-history.md entry:
 3. Use browser Claude for theory/concepts (saves Cursor credits)
 
 ## Current Progress
-**Week:** 2 - LRU Eviction + TTL  
-**Day:** 2 (LRU + Cache Integration) ✅ COMPLETED  
-**Next:** TTL (Time-To-Live) Implementation
+**Week:** 3 - Replication & Fault Tolerance  
+**Day:** 1 (Master-Slave Replication) ✅ COMPLETED  
+**Next:** Week 3 Day 2 - Enhanced Replication (Monitoring, Health Checks)
 
 Read these files for context:
 - `vibing-history/CURRENT-STATUS.md` - Quick status snapshot (START HERE!)
@@ -102,12 +103,18 @@ redis/
 │   └── loadtest/       # ✅ COMPLETED - Load testing tool
 ├── internal/
 │   ├── cache/
-│   │   ├── cache.go        # ✅ Thread-safe cache with LRU eviction
-│   │   ├── cache_test.go   # ✅ Unit tests + benchmarks + LRU tests
+│   │   ├── cache.go        # ✅ Thread-safe cache with LRU eviction + TTL
+│   │   ├── cache_test.go   # ✅ Unit tests + benchmarks + LRU + TTL tests
 │   │   ├── lru.go          # ✅ LRU doubly-linked list
 │   │   └── lru_test.go     # ✅ 15 comprehensive tests
+│   ├── replication/
+│   │   ├── protocol.go     # ✅ Replication protocol (Operation struct)
+│   │   ├── protocol_test.go # ✅ Protocol serialization tests
+│   │   ├── master.go       # ✅ Master node with async broadcasting
+│   │   ├── slave.go        # ✅ Slave node with replication receiver
+│   │   └── replication_test.go # ✅ Integration tests
 │   └── server/
-│       ├── server.go       # ✅ TCP server with 7 commands
+│       ├── server.go       # ✅ TCP server with master/slave/standalone modes
 │       └── server_test.go  # ✅ Server tests
 └── vibing-history/     # 📚 Documentation & context
 ```
@@ -118,12 +125,22 @@ redis/
 - internal/server/server.go - TCP server (75K ops/sec, 7 commands)
 - cmd/loadtest/main.go - Professional load testing tool
 
-**Week 2 (IN PROGRESS):**
+**Week 2 (ALL DONE ✅):**
 - internal/cache/lru.go - LRU doubly-linked list (O(1) operations) ✅
 - internal/cache/lru_test.go - 15 passing tests ✅
-- internal/cache/cache.go - LRU + Cache integration with eviction ✅
-- internal/cache/cache_test.go - 4 LRU eviction tests, 22 total tests ✅
-- Next: TTL (Time-To-Live) implementation
+- internal/cache/cache.go - LRU + Cache integration with eviction + TTL ✅
+- internal/cache/cache_test.go - 7 TTL tests, 30 total tests ✅
+- internal/server/server.go - SET key value EX seconds protocol support ✅
+
+**Week 3 (IN PROGRESS):**
+- internal/replication/protocol.go - Replication protocol with Operation struct ✅
+- internal/replication/protocol_test.go - Protocol tests ✅
+- internal/replication/master.go - Master with async broadcasting ✅
+- internal/replication/slave.go - Slave with replication receiver + TTL compensation ✅
+- internal/replication/replication_test.go - Integration tests ✅
+- cmd/server/main.go - Command-line flags (--role, --port, --replication-port, --master) ✅
+- internal/server/server.go - Server integration with master/slave/standalone modes ✅
+- Next: Week 3 Day 2 - Enhanced Replication (Monitoring, Health Checks)
 
 ## What Student Learns From
 - Hands-on implementation

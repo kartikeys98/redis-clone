@@ -199,4 +199,127 @@ Format: `<Number> | <Files Changed> | <Summary of Action> | <Purpose of Action>`
 - Defensive programming with panic checks catches bugs early
 - Performance can improve with better memory locality
 
+---
+
+### Day 3 (Week 2): TTL (Time-To-Live) Implementation (✅ COMPLETED)
+
+14 | internal/cache/cache.go | Added TTL expiration support with passive and active cleanup | Enable keys to expire automatically, freeing memory for expired entries
+
+15 | internal/cache/cache_test.go | Added 7 comprehensive TTL expiration tests | Ensure TTL correctness, test passive expiration, verify expired keys evicted before LRU
+
+16 | internal/server/server.go | Updated SET command to support EX seconds parameter | Enable clients to set TTL via network protocol: SET key value EX 60
+
+**Features Implemented:**
+- `ExpiryTime time.Time` field in `CacheEntry` (zero value = never expires)
+- `SetWithTTL(key, value, ttl)` method for setting keys with expiration
+- `Set(key, value)` calls `SetWithTTL` with ttl=0 (backward compatible)
+- Passive expiration: `Get()` checks and deletes expired keys on access
+- Passive expiration: `Keys()` filters out expired keys
+- Active expiration: Background goroutine runs every 10 seconds
+- `cleanupExpiredKeys()` scans all keys and removes expired ones
+- `Close()` method to gracefully stop background cleanup goroutine
+- `deleteWithoutLocking()` helper to prevent deadlocks
+- Server protocol: `SET key value EX seconds` parses and sets TTL
+- Expired keys evicted before LRU eviction (optimization)
+
+**Test Coverage:**
+- TestTTL_BasicExpiration: Keys expire after TTL duration
+- TestTTL_SetWithoutTTL: Keys without TTL don't expire
+- TestTTL_SetWithTTLAndUpdateWithoutTTLClearsTTL: Update clears TTL
+- TestTTL_UpdateWithNewTTL: Update with new TTL replaces old TTL
+- TestTTL_KeysFiltersExpired: Keys() doesn't return expired keys
+- TestTTL_ExpiredEvictedBeforeLRU: Expired keys evicted before LRU
+- TestTTL_MultipleExpiredEvicted: Multiple expired keys handled correctly
+- TestServerTTL: Server protocol SET key value EX seconds works
+- All 30 tests passing (cache + server + LRU + TTL)
+- 0 race conditions detected
+
+**Key Design Decisions:**
+- `time.Time` zero value for "never expires" (no allocations)
+- Passive expiration in Get() and Keys() (lazy cleanup)
+- Active expiration every 10 seconds (proactive cleanup)
+- Background goroutine with ticker pattern (standard Go concurrency)
+- Channel-based graceful shutdown (`stopCleanup chan struct{}`)
+- Expired keys checked before LRU eviction (memory optimization)
+- Update existing key clears TTL if ttl=0, sets new TTL if ttl>0
+- Server protocol: EX parameter at end, value can contain spaces
+
+**Key Learnings:**
+- `time.Ticker` for periodic background tasks
+- Goroutines and channels for concurrent operations
+- Select statement for listening to multiple channels
+- Graceful shutdown pattern with channels
+- Deadlock prevention: internal methods without locking
+- Zero value semantics in Go (time.Time{} = never expires)
+- Protocol parsing: handling optional parameters
+- Two-phase expiration: passive (on access) + active (background)
+- How Redis implements expiration (similar pattern!)
+
+---
+
+## Week 3: Replication & Fault Tolerance
+
+### Day 1 (Week 3): Master-Slave Replication (✅ COMPLETED)
+
+17 | internal/replication/protocol.go | Designed and implemented replication protocol with Operation struct and serialization | Enable master-slave communication with text-based protocol supporting SET, DELETE, FLUSH operations with TTL and timestamps
+
+18 | internal/replication/protocol_test.go | Added comprehensive protocol tests for serialization/deserialization | Ensure protocol correctness, test all operation types, validate error handling
+
+19 | internal/replication/master.go | Implemented Master node with asynchronous broadcasting to slaves | Enable master to replicate all write operations (SET, DELETE, FLUSH) to connected slaves
+
+20 | internal/replication/slave.go | Implemented Slave node with replication receiver and TTL compensation | Enable slave to receive operations from master, apply them in order, and compensate for replication lag in TTL
+
+21 | internal/replication/replication_test.go | Added integration tests for master-slave replication | Verify end-to-end replication works, test SET, DELETE, FLUSH, TTL expiration with lag compensation
+
+22 | cmd/server/main.go | Added command-line flags for replication mode (--role, --port, --replication-port, --master) | Enable running server as master, slave, or standalone mode
+
+23 | internal/server/server.go | Integrated Master and Slave into server with role-based command handling | Enable server to operate in master/slave/standalone modes, enforce read-only on slaves, route commands appropriately
+
+24 | internal/server/server_test.go | Fixed server.New() calls to match new signature | Update tests after server constructor changes
+
+**Features Implemented:**
+- Replication protocol: Text-based with Operation struct (Type, Key, Value, TTL, Timestamp)
+- Master node: Wraps cache operations, broadcasts to all slaves asynchronously
+- Slave node: Connects to master, receives operations, applies in order
+- TTL compensation: Slave calculates remaining TTL after replication lag
+- Server integration: Three modes (master, slave, standalone) with command-line flags
+- Read-only slaves: Rejects SET, DELETE, FLUSH from clients (writes only via replication)
+- Thread-safe slave management: RWMutex for slave list, Mutex for per-slave writer
+- Graceful error handling: Auto-removes disconnected slaves, logs errors
+
+**Test Coverage:**
+- Protocol tests: SET (with/without TTL), DELETE, FLUSH, PING serialization/deserialization
+- Protocol error tests: Invalid formats, missing fields, invalid TTL/timestamp
+- Replication integration: Master-slave SET, DELETE, FLUSH, TTL expiration
+- Multiple slaves test: Master broadcasts to multiple slaves correctly
+- All 47 tests passing (cache + server + replication)
+- 0 race conditions detected with race detector
+
+**End-to-End Testing Results:**
+- Master on port 6379, slave on port 6378
+- SET operations replicated correctly ✅
+- DELETE operations replicated correctly ✅
+- FLUSH operations replicated correctly ✅
+- TTL expiration with replication lag compensation ✅
+- Read-only enforcement on slaves (SET/DEL/FLUSH rejected) ✅
+
+**Key Design Decisions:**
+- Millisecond precision for TTL (prevents truncation: int64(0.2 seconds) = 0 bug)
+- Synchronous operation application on slave (no `go s.apply()` - maintains order)
+- Asynchronous broadcasting on master (non-blocking, spawns goroutine per slave)
+- Thread-safe writer per slave connection (bufio.Writer not thread-safe)
+- Copy slaves slice under read lock before iterating (avoids holding lock too long)
+- TTL compensation: `remaining = op.TTL - elapsed` to account for network delay
+- Skip expired keys on slave (don't apply operations for keys already expired)
+
+**Key Learnings:**
+- Precision loss bugs: Always use smallest unit (milliseconds) for time serialization
+- Thread safety: Most Go types (bufio.Writer, slices, maps) need explicit mutex protection
+- Race detector catches concurrency bugs that are hard to find manually
+- Async replication challenges: Must apply operations in order, compensate for lag
+- Design patterns: Master wraps writes + broadcasts, reads go direct to cache
+- Error handling: Check connection errors before starting replication, log but don't crash
+- Scanner error checking: Must be outside the loop, not inside
+- Read-only slaves: Standard pattern for master-slave replication (single source of truth)
+
 

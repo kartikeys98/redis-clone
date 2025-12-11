@@ -10,18 +10,33 @@ import (
 	"time"
 
 	"github.com/kartikey-singh/redis/internal/cache"
+	"github.com/kartikey-singh/redis/internal/replication"
 )
 
 type Server struct {
-	addr  string
-	cache *cache.Cache
+	addr            string
+	cache           *cache.Cache
+	role            string
+	masterAddr      string
+	replicationPort int
+	master          *replication.Master
+	slave           *replication.Slave
 }
 
-func New(addr string, cache *cache.Cache) *Server {
-	return &Server{
-		addr:  addr,
-		cache: cache,
+func New(addr string, cache *cache.Cache, role string, masterAddr string, replicationPort int) *Server {
+	s := &Server{
+		addr:            addr,
+		cache:           cache,
+		role:            role,
+		masterAddr:      masterAddr,
+		replicationPort: replicationPort,
 	}
+	if role == "master" {
+		s.master = replication.NewMaster(cache)
+	} else if role == "slave" {
+		s.slave = replication.NewSlave(cache, masterAddr)
+	}
+	return s
 }
 
 func (s *Server) Start() error {
@@ -32,6 +47,17 @@ func (s *Server) Start() error {
 	defer listener.Close()
 
 	log.Printf("Server listening on %s", s.addr)
+
+	switch s.role {
+	case "master":
+		go s.master.ListenForSlaves(fmt.Sprintf(":%d", s.replicationPort))
+	case "slave":
+		if err := s.slave.ConnectToMaster(); err != nil {
+			log.Printf("Error connecting to master: %v", err)
+			return err
+		}
+		go s.slave.StartReplication()
+	}
 
 	for {
 		conn, err := listener.Accept()
@@ -86,19 +112,48 @@ func (s *Server) handleConnection(conn net.Conn) {
 				value = strings.Join(parts[2:], " ")
 				ttl = 0
 			}
-			s.cache.SetWithTTL(key, value, ttl)
-			conn.Write([]byte("+OK\n"))
+			switch s.role {
+			case "master":
+				err := s.master.Set(key, value, ttl)
+				if err != nil {
+					conn.Write([]byte("ERR " + err.Error() + "\n"))
+					continue
+				}
+				conn.Write([]byte("+OK\n"))
+			case "slave":
+				conn.Write([]byte("+ERR: Slave is not allowed to set keys\n"))
+			case "standalone":
+				s.cache.SetWithTTL(key, value, ttl)
+				conn.Write([]byte("+OK\n"))
+			}
 
 		case "GET":
 			if len(parts) < 2 {
 				conn.Write([]byte("ERR wrong number of arguments for 'get' command\n"))
 				continue
 			}
-			value, found := s.cache.Get(parts[1])
-			if !found {
-				conn.Write([]byte("(nil)\n"))
-			} else {
-				conn.Write([]byte(value + "\n"))
+			switch s.role {
+			case "master":
+				value, found := s.master.Get(parts[1])
+				if !found {
+					conn.Write([]byte("(nil)\n"))
+				} else {
+					conn.Write([]byte(value + "\n"))
+				}
+			case "slave":
+				value, found := s.slave.Get(parts[1])
+				if !found {
+					conn.Write([]byte("(nil)\n"))
+				} else {
+					conn.Write([]byte(value + "\n"))
+				}
+			case "standalone":
+				value, found := s.cache.Get(parts[1])
+				if !found {
+					conn.Write([]byte("(nil)\n"))
+				} else {
+					conn.Write([]byte(value + "\n"))
+				}
 			}
 
 		case "DEL":
@@ -106,11 +161,24 @@ func (s *Server) handleConnection(conn net.Conn) {
 				conn.Write([]byte("ERR wrong number of arguments for 'del' command\n"))
 				continue
 			}
-			deleted := s.cache.Delete(parts[1])
-			if deleted {
-				conn.Write([]byte("+OK\n"))
-			} else {
-				conn.Write([]byte("(nil)\n"))
+			switch s.role {
+			case "master":
+				deleted := s.master.Delete(parts[1])
+				if deleted == nil {
+					conn.Write([]byte("+OK\n"))
+				} else {
+					conn.Write([]byte("+ERR: " + deleted.Error() + "\n"))
+				}
+			case "slave":
+				conn.Write([]byte("+ERR: Slave is not allowed to delete keys\n"))
+				
+			case "standalone":
+				deleted := s.cache.Delete(parts[1])
+				if deleted {
+					conn.Write([]byte("+OK\n"))
+				} else {
+					conn.Write([]byte("+ERR: Key not found\n"))
+				}
 			}
 
 		case "PING":
@@ -126,18 +194,27 @@ func (s *Server) handleConnection(conn net.Conn) {
 			}
 
 		case "FLUSH":
-			s.cache.Flush()
-			conn.Write([]byte("+OK\n"))
-
+			switch s.role {
+			case "master":
+				err := s.master.Flush()
+				if err != nil {
+					conn.Write([]byte("+ERR: " + err.Error() + "\n"))
+					continue
+				}
+				conn.Write([]byte("+OK\n"))
+			case "slave":
+				conn.Write([]byte("+ERR: Slave is not allowed to flush the cache\n"))
+			case "standalone":
+				s.cache.Flush()
+				conn.Write([]byte("+OK\n"))
+			}
 		case "SIZE":
 			size := s.cache.Size()
-			conn.Write([]byte(fmt.Sprintf("%d\n", size)))
-
+    		conn.Write([]byte(fmt.Sprintf("%d\n", size)))
 		default:
 			conn.Write([]byte("ERR unknown command '" + command + "'\n"))
 		}
 	}
-
 	// Check for scanner errors
 	if err := scanner.Err(); err != nil {
 		log.Printf("[%s] Scanner error: %v", conn.RemoteAddr(), err)

@@ -1,13 +1,13 @@
 # Current Status - Quick Context for New Conversations
 
-**Last Updated:** Week 2, Day 2 (LRU Integration) Completed
+**Last Updated:** Week 3, Day 1 (Master-Slave Replication) Completed
 
 ---
 
 ## 🎯 Where We Are
 
-**Current Week:** Week 2 - LRU Eviction + TTL  
-**Current Day:** Day 2 ✅ LRU + Cache Integration COMPLETED - Ready for TTL!  
+**Current Week:** Week 3 - Replication & Fault Tolerance  
+**Current Day:** Day 1 ✅ Master-Slave Replication COMPLETED  
 **Role:** Instructor mode - Student codes, I guide and review
 
 ---
@@ -32,7 +32,7 @@
 - Performance: 75K ops/sec, sub-millisecond latency
 - Key finding: Network-bound, not CPU-bound
 
-### Week 2 Progress (IN PROGRESS)
+### Week 2 Summary (ALL COMPLETED ✅)
 
 **Day 1: LRU Data Structure ✅ COMPLETED**
 
@@ -131,51 +131,137 @@ func New(maxSize int) *Cache {
 - Eviction timing: check existing before evicting
 - Defensive programming with panic checks
 
----
+**Day 3: TTL (Time-To-Live) Implementation ✅ COMPLETED**
 
-## 🚀 What's Next
+**Files:**
+- `internal/cache/cache.go` - Added TTL support with passive and active expiration
+- `internal/cache/cache_test.go` - Added 7 TTL tests
+- `internal/server/server.go` - Updated SET command to support EX seconds
 
-### Day 3 (Week 2): TTL (Time-To-Live) Implementation
-**Goal:** Add expiration timestamps and automatic cleanup for keys
-
-**What to implement:**
-1. Add expiration to `CacheEntry`:
+**Implementation:**
 ```go
 type CacheEntry struct {
     Value      string
     lruNode    *Node
-    ExpiresAt  time.Time  // New: expiration timestamp
+    ExpiryTime time.Time  // Zero value = never expires
 }
+
+type Cache struct {
+    data        map[string]*CacheEntry
+    lock        sync.RWMutex
+    maxSize     int
+    lruList     *LRUList
+    stopCleanup chan struct{}  // For graceful shutdown
+}
+
+func (c *Cache) SetWithTTL(key, value string, ttl time.Duration)
+func (c *Cache) backgroundCleanup()  // Runs every 10 seconds
+func (c *Cache) cleanupExpiredKeys()  // Scans and removes expired
+func (c *Cache) Close()  // Stops background goroutine
 ```
 
-2. Update `Set()` to support TTL:
+**Key Features:**
+- Passive expiration: Get() and Keys() check and filter expired keys
+- Active expiration: Background goroutine cleans up every 10 seconds
+- Server protocol: `SET key value EX seconds` sets TTL
+- Expired keys evicted before LRU eviction
+- Graceful shutdown with channel-based signaling
+
+**Tests:**
+- ✅ 7 TTL tests (expiration, update, filtering, eviction)
+- ✅ Server TTL test
+- ✅ 30/30 tests passing across entire project
+- ✅ 0 race conditions
+
+**Key Concepts Learned:**
+- `time.Ticker` for periodic background tasks
+- Goroutines and channels for concurrency
+- Select statement for multiple channel listening
+- Graceful shutdown pattern
+- Zero value semantics (time.Time{} = never expires)
+- Protocol parsing with optional parameters
+- Two-phase expiration (passive + active)
+
+### Week 3 Progress (IN PROGRESS)
+
+**Day 1: Master-Slave Replication ✅ COMPLETED**
+
+**Files:**
+- `internal/replication/protocol.go` - Replication protocol with Operation struct
+- `internal/replication/protocol_test.go` - Protocol serialization tests
+- `internal/replication/master.go` - Master node with asynchronous broadcasting
+- `internal/replication/slave.go` - Slave node with replication receiver
+- `internal/replication/replication_test.go` - Integration tests
+- `cmd/server/main.go` - Command-line flags for replication mode
+- `internal/server/server.go` - Server integration with master/slave roles
+
+**Implementation:**
 ```go
-// New method signature
-func (c *Cache) SetWithTTL(key, value string, ttl time.Duration) {
-    // Set entry with ExpiresAt = time.Now().Add(ttl)
+// Replication Protocol
+type Operation struct {
+    Type      OpType
+    Key       string
+    Value     string
+    TTL       time.Duration  // Milliseconds for precision
+    Timestamp int64
+}
+
+// Master wraps cache operations and broadcasts
+func (m *Master) Set(key, value string, ttl time.Duration) error {
+    m.cache.SetWithTTL(key, value, ttl)
+    m.broadcast(&Operation{...})  // Async to all slaves
+}
+
+// Slave receives and applies operations
+func (s *Slave) StartReplication() {
+    for scanner.Scan() {
+        op := ParseOperation(line)
+        s.apply(op)  // Synchronous - maintains order!
+    }
 }
 ```
 
-3. Implement passive expiration:
-- `Get()`: Check if key expired, return nil and delete if so
-- Lazy cleanup on access
+**Key Features:**
+- Text-based replication protocol (SET, DELETE, FLUSH, PING)
+- Master broadcasts writes asynchronously to all slaves
+- Slave applies operations synchronously (maintains order)
+- TTL compensation for replication lag
+- Read-only slaves (reject client writes)
+- Thread-safe slave connection management
+- Auto-removes disconnected slaves
 
-4. Implement active expiration:
-- Background goroutine that periodically scans
-- Removes expired keys proactively
-- Use ticker for periodic cleanup
+**Tests:**
+- ✅ 6 protocol tests (serialization/deserialization)
+- ✅ 2 replication integration tests (master-slave, multiple slaves)
+- ✅ 47/47 tests passing across entire project
+- ✅ 0 race conditions
+- ✅ End-to-end testing verified
 
-5. Update server protocol:
-- `SET key value EX seconds` - set with TTL
-- Backward compatible with existing `SET key value`
+**Key Concepts Learned:**
+- Precision loss bugs (milliseconds vs seconds)
+- Thread safety for bufio.Writer and shared slices
+- Async broadcasting vs synchronous application
+- TTL compensation for network lag
+- Read-only slave pattern (single source of truth)
+- Race detector usage for concurrency debugging
 
-6. Add tests:
-- Keys expire after TTL
-- Passive expiration (Get returns nil for expired)
-- Active cleanup runs in background
-- TTL works with LRU eviction
+---
 
-**This combines two expiration strategies used by Redis!**
+## 🚀 What's Next
+
+### Week 3: Replication & Fault Tolerance (Continued)
+
+**Day 2-3: Enhanced Replication**
+- Multiple slaves support (already working!)
+- Replication lag monitoring
+- Health checks and heartbeat
+- Replication status commands (INFO replication)
+
+**Day 4-5: Failure Detection & Manual Failover**
+- Heartbeat mechanism
+- Master failure detection
+- Manual failover (promote slave to master)
+- Split-brain prevention
 
 ---
 

@@ -1,0 +1,45 @@
+🚀 Starting Application Server ...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📡 Server address: :6378
+📝 Supported commands:
+   - SET key value  : Store a key-value pair
+   - GET key        : Retrieve a value
+   - DEL key        : Delete a key
+   - KEYS           : List all keys
+   - SIZE           : Get cache size
+   - FLUSH          : Clear all data
+   - PING           : Test connection
+
+🔗 Connect with: nc localhost:6378
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+2025/12/12 01:34:29 Role: slave, Master address: localhost:6380, Replication port: 6380
+2025/12/12 01:34:29 Server listening on :6378
+2025/12/12 01:34:29 Connected to master: localhost:6380
+2025/12/12 01:34:42 SET temp: original TTL=10s, elapsed=235.737586ms, remaining=9.764262414s
+2025/12/12 01:34:42 Applied SET with TTL: temp (remaining=9.764262414s)
+2025/12/12 01:34:42 Applied SET without TTL: user:1
+2025/12/12 01:34:42 Applied SET without TTL: user:2
+2025/12/12 01:36:03 New connection from 127.0.0.1:43758
+2025/12/12 01:36:03 [127.0.0.1:43758] Command: GET user:1
+2025/12/12 01:36:03 [127.0.0.1:43758] Command: GET user:2
+2025/12/12 01:36:03 [127.0.0.1:43758] Command: GET temp
+2025/12/12 01:36:03 [127.0.0.1:43758] Command: KEYS
+2025/12/12 01:36:03 [127.0.0.1:43758] Command: SIZE
+2025/12/12 01:36:31 Connection closed from 127.0.0.1:43758
+2025/12/12 01:36:40 Applied DELETE: user:1
+2025/12/12 01:36:53 New connection from 127.0.0.1:35724
+2025/12/12 01:36:53 [127.0.0.1:35724] Command: GET user:1
+2025/12/12 01:36:53 [127.0.0.1:35724] Command: KEYS
+2025/12/12 01:36:53 [127.0.0.1:35724] Command: SIZE
+2025/12/12 01:36:55 Connection closed from 127.0.0.1:35724
+2025/12/12 01:37:00 Applied FLUSH
+2025/12/12 01:37:14 New connection from 127.0.0.1:58620
+2025/12/12 01:37:14 [127.0.0.1:58620] Command: SIZE
+2025/12/12 01:37:14 [127.0.0.1:58620] Command: KEYS
+2025/12/12 01:37:14 [127.0.0.1:58620] Command: GET user:2
+2025/12/12 01:37:23 Connection closed from 127.0.0.1:58620
+2025/12/12 01:37:29 New connection from 127.0.0.1:55542
+2025/12/12 01:37:29 [127.0.0.1:55542] Command: SET test value
+2025/12/12 01:37:29 [127.0.0.1:55542] Command: DEL test
+2025/12/12 01:37:29 [127.0.0.1:55542] Command: FLUSH
+2025/12/12 01:37:36 Connection closed from 127.0.0.1:55542

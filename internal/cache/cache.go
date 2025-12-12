@@ -77,6 +77,35 @@ func (c *Cache) Get(key string) (string, bool) {
 	return "", false
 }
 
+// GetWithTTL returns value and remaining TTL
+func (c *Cache) GetWithTTL(key string) (string, time.Duration, bool) {
+    c.lock.Lock()
+    defer c.lock.Unlock()
+    
+    entry, exists := c.data[key]
+    if !exists {
+        return "", 0, false
+    }
+    
+    // Check expiration
+    if !entry.ExpiryTime.IsZero() && time.Now().After(entry.ExpiryTime) {
+        c.deleteWithoutLocking(key)
+        return "", 0, false
+    }
+    
+    // Calculate remaining TTL
+    var remainingTTL time.Duration
+    if !entry.ExpiryTime.IsZero() {
+        remainingTTL = time.Until(entry.ExpiryTime)
+        if remainingTTL < 0 {
+            remainingTTL = 0
+        }
+    }
+    
+    c.lruList.MoveToFront(entry.lruNode)
+    return entry.Value, remainingTTL, true
+}
+
 func (c *Cache) SetWithTTL(key string, value string, ttl time.Duration) {
 	c.lock.Lock()
 	defer c.lock.Unlock()

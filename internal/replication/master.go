@@ -104,14 +104,28 @@ func (m *Master) ListenForSlaves(port string) error {
 
 // addSlave adds a new slave connection
 func (m *Master) addSlave(conn net.Conn) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.slaves = append(m.slaves, &SlaveConnection{
-		conn:   conn,
-		writer: bufio.NewWriter(conn),
-	})
-	log.Printf("Slave connected: %s (total: %d)", conn.RemoteAddr(), len(m.slaves))
+	slave := &SlaveConnection{conn: conn, writer: bufio.NewWriter(conn)}
+    
+    // Send all existing data first
+    m.mu.RLock()
+    keys := m.cache.Keys()
+    m.mu.RUnlock()
+    
+    for _, key := range keys {
+        value, ttl, found := m.cache.GetWithTTL(key)
+        if found {
+            op := &Operation{
+                Type: OpSet, Key: key, Value: value, TTL: ttl,
+                Timestamp: time.Now().Unix(),
+            }
+            slave.Send(op)
+        }
+    }
+    
+    // Now add to slave list for ongoing replication
+    m.mu.Lock()
+    m.slaves = append(m.slaves, slave)
+    m.mu.Unlock()
 }
 
 // removeSlave removes a disconnected slave

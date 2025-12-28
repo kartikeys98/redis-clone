@@ -51,6 +51,7 @@ func (s *Server) Start() error {
 	switch s.role {
 	case "master":
 		go s.master.ListenForSlaves(fmt.Sprintf(":%d", s.replicationPort))
+		go s.master.StartHeartbeatForSlave(5*time.Second, 3)
 	case "slave":
 		if err := s.slave.ConnectToMaster(); err != nil {
 			log.Printf("Error connecting to master: %v", err)
@@ -97,7 +98,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 			key := parts[1]
 			var value string
 			var ttl time.Duration
-			
+
 			// Check for TTL
 			if len(parts) >= 5 && strings.ToUpper(parts[len(parts)-2]) == "EX" {
 				ttlValue := parts[len(parts)-1]
@@ -171,7 +172,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 				}
 			case "slave":
 				conn.Write([]byte("+ERR: Slave is not allowed to delete keys\n"))
-				
+
 			case "standalone":
 				deleted := s.cache.Delete(parts[1])
 				if deleted {
@@ -210,7 +211,7 @@ func (s *Server) handleConnection(conn net.Conn) {
 			}
 		case "SIZE":
 			size := s.cache.Size()
-    		conn.Write([]byte(fmt.Sprintf("%d\n", size)))
+			conn.Write([]byte(fmt.Sprintf("%d\n", size)))
 		default:
 			conn.Write([]byte("ERR unknown command '" + command + "'\n"))
 		}

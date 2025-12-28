@@ -1,6 +1,6 @@
 # Current Status - Quick Context for New Conversations
 
-**Last Updated:** Week 3, Day 1 (Master-Slave Replication) Completed
+**Last Updated:** Week 3, Day 1 (Master-Slave Replication + Health Monitoring) Completed
 
 ---
 
@@ -184,13 +184,14 @@ func (c *Cache) Close()  // Stops background goroutine
 
 ### Week 3 Progress (IN PROGRESS)
 
-**Day 1: Master-Slave Replication ✅ COMPLETED**
+**Day 1: Master-Slave Replication + Health Monitoring ✅ COMPLETED**
 
 **Files:**
 - `internal/replication/protocol.go` - Replication protocol with Operation struct
 - `internal/replication/protocol_test.go` - Protocol serialization tests
-- `internal/replication/master.go` - Master node with asynchronous broadcasting
+- `internal/replication/master.go` - Master node with asynchronous broadcasting and heartbeat mechanism
 - `internal/replication/slave.go` - Slave node with replication receiver
+- `internal/replication/health.go` - HealthMonitor utility for tracking slave connection health
 - `internal/replication/replication_test.go` - Integration tests
 - `cmd/server/main.go` - Command-line flags for replication mode
 - `internal/server/server.go` - Server integration with master/slave roles
@@ -228,7 +229,8 @@ func (s *Slave) StartReplication() {
 - TTL compensation for replication lag
 - Read-only slaves (reject client writes)
 - Thread-safe slave connection management
-- Auto-removes disconnected slaves
+- Health monitoring with heartbeat mechanism (PING every 5 seconds)
+- Auto-removes unhealthy slaves (3 consecutive failures or threshold exceeded)
 
 **Tests:**
 - ✅ 6 protocol tests (serialization/deserialization)
@@ -244,6 +246,9 @@ func (s *Slave) StartReplication() {
 - TTL compensation for network lag
 - Read-only slave pattern (single source of truth)
 - Race detector usage for concurrency debugging
+- Health monitoring: TCP buffer acceptance != slave alive
+- Heartbeat-only health tracking (Policy A) vs per-operation tracking (Policy B)
+- Copy shared slices inside loops to avoid race conditions
 
 ---
 
@@ -251,11 +256,11 @@ func (s *Slave) StartReplication() {
 
 ### Week 3: Replication & Fault Tolerance (Continued)
 
-**Day 2-3: Enhanced Replication**
-- Multiple slaves support (already working!)
+**Day 2: Enhanced Replication (Monitoring, Health Checks)**
+- Application-level PING/PONG protocol (fix TCP buffer != slave alive issue)
 - Replication lag monitoring
-- Health checks and heartbeat
 - Replication status commands (INFO replication)
+- Improved health check robustness
 
 **Day 4-5: Failure Detection & Manual Failover**
 - Heartbeat mechanism

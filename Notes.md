@@ -32,4 +32,31 @@
 	slaves := make([]*SlaveConnection, len(m.slaves))
 	copy(slaves, m.slaves)
 	m.mu.RUnlock()
+    Q) Why need lock we can send broadcast event to all slaves from for loop even if another gorutine removes it?
+    A) If another gorutine removes it then during for loop it might access some undefined memory location + the go race flag will not allow it to pass.
 10. ticker := time.NewTicker(10 * time.Second) & <-ticker.C
+11. 
+    a. Array of pointers: 
+    slaves := []*SlaveConnection{&slave1, &slave2}
+    slaves[0].conn = newConn  
+    // Modifies the actual SlaveConnection
+    b. Pointer to a slice
+    slaves := &[]SlaveConnection{slave1, slave2}
+    (*slaves)[0].conn = newConn  
+    // Modifies a copy, not the original!
+12. Understanding of buffer:
+    writer := bufio.NewWriter(conn)
+    // io.Writer -> interface, net.Conn -> interface
+    // anything that is net.Conn is also an io.writer as it implements Write() method
+    writer.WriteString(str)
+    writer.Flush()
+    Q) Why does Go allow this without any conversion?
+        Because Go uses implicit interface satisfaction:
+        You don’t write: type TCPConn implements io.Writer
+        Go checks automatically: “does this value have the methods the interface needs?”
+        So when you write:
+        w := bufio.NewWriter(conn)
+        Go is effectively saying:
+        “NewWriter needs something that can Write([]byte)”
+        “conn can Write([]byte)”
+        “ok, pass it”

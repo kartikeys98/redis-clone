@@ -86,8 +86,8 @@ Template for action-history.md entry:
 
 ## Current Progress
 **Week:** 3 - Replication & Fault Tolerance  
-**Day:** 1 (Master-Slave Replication) ✅ COMPLETED  
-**Next:** Week 3 Day 2 - Enhanced Replication (Monitoring, Health Checks)
+**Day:** 1 (Master-Slave Replication + Health Monitoring) ✅ COMPLETED  
+**Next:** Week 3 Day 2 - Enhanced Replication (PING/PONG Protocol, Monitoring)
 
 Read these files for context:
 - `vibing-history/CURRENT-STATUS.md` - Quick status snapshot (START HERE!)
@@ -110,8 +110,9 @@ redis/
 │   ├── replication/
 │   │   ├── protocol.go     # ✅ Replication protocol (Operation struct)
 │   │   ├── protocol_test.go # ✅ Protocol serialization tests
-│   │   ├── master.go       # ✅ Master node with async broadcasting
+│   │   ├── master.go       # ✅ Master node with async broadcasting + heartbeat
 │   │   ├── slave.go        # ✅ Slave node with replication receiver
+│   │   ├── health.go       # ✅ HealthMonitor utility for slave health tracking
 │   │   └── replication_test.go # ✅ Integration tests
 │   └── server/
 │       ├── server.go       # ✅ TCP server with master/slave/standalone modes
@@ -135,12 +136,13 @@ redis/
 **Week 3 (IN PROGRESS):**
 - internal/replication/protocol.go - Replication protocol with Operation struct ✅
 - internal/replication/protocol_test.go - Protocol tests ✅
-- internal/replication/master.go - Master with async broadcasting ✅
+- internal/replication/master.go - Master with async broadcasting + heartbeat mechanism ✅
 - internal/replication/slave.go - Slave with replication receiver + TTL compensation ✅
+- internal/replication/health.go - HealthMonitor utility for tracking slave health ✅
 - internal/replication/replication_test.go - Integration tests ✅
 - cmd/server/main.go - Command-line flags (--role, --port, --replication-port, --master) ✅
 - internal/server/server.go - Server integration with master/slave/standalone modes ✅
-- Next: Week 3 Day 2 - Enhanced Replication (Monitoring, Health Checks)
+- Next: Week 3 Day 2 - Enhanced Replication (PING/PONG Protocol, Monitoring)
 
 ## What Student Learns From
 - Hands-on implementation
@@ -172,3 +174,169 @@ redis/
 - Ask student to explain concepts back
 - Verify comprehension before advancing
 - Connect new concepts to previous learning
+
+## Interview-Prep Learning Loop (Use This Every Session)
+
+**Before coding (5-10 mins):**
+- Write/clarify the **requirements** and **non-goals** (what we will NOT build today).
+- State the **constraints** (latency vs correctness vs simplicity vs memory).
+- Identify **2-3 failure modes** we must handle (timeouts, partial writes, slow consumers, clock drift, etc.).
+- Predict the **complexity** (Big-O and goroutine/memory behavior).
+
+**While coding:**
+- Prefer **small PR-sized steps** that are testable (even if you aren't making PRs).
+- Name invariants explicitly (e.g. "replication offsets are monotonic per slave").
+- When choosing between options, write the trade-off in 1 sentence in the chat:
+  - "Choosing X because <benefit>, accepting <cost>."
+
+**After coding (10 mins):**
+- Explain the feature in interview format:
+  - Problem → constraints → design → trade-offs → failure modes → tests/metrics.
+- Add 2-3 bullets to `action-history.md` under **Key Learnings** (keep it mechanical).
+- Identify 1 follow-up improvement (perf, correctness, observability) for "tomorrow".
+
+## Definition of Done (DoD) Checklist (Per Feature)
+- **Correctness**: has at least 1 unit test OR an integration test that would catch regressions.
+- **Concurrency**: no data races; locks/channels usage justified; goroutine lifecycle is bounded.
+- **Error handling**: errors are contextual (wrapped) and lead to safe behavior (no silent corruption).
+- **Observability**: at least one of logs/metrics/health endpoint updated for the feature.
+- **Performance**: if the feature is hot-path, add/update a benchmark or a loadtest scenario.
+- **API behavior**: command semantics documented implicitly via tests (preferred) and examples.
+
+## Interview Mapping: What This Project Teaches You (Use in Explanations)
+
+**Low-Level Design (LLD) signals:**
+- Clear module boundaries (`server` vs `cache` vs `replication`)
+- Correct data structures (LRU, TTL wheels vs heap, queues, ring buffers)
+- Concurrency safety (RWMutex, channels, cancellation, backpressure)
+- Testing strategy (unit vs integration; deterministic time; race tests)
+
+**System Design / HLD signals:**
+- Replication strategy (sync/async, acking, offsets, catch-up)
+- Failure handling (network partitions, retries, idempotency, leader changes)
+- Scalability (sharding strategy, consistent hashing, rebalancing)
+- Observability (health checks, metrics, alertable SLO signals)
+
+**Always answer these in an interview:**
+- What are the **consistency guarantees**?
+- What happens on **crash/restart**?
+- What happens on **slow replica** / backpressure?
+- How do you do **versioning** and **compatibility** (protocol evolution)?
+
+## Practice Drills (Do One After Each Milestone)
+- **Explain back**: 2-minute explanation of the component without looking at code.
+- **Trade-off swap**: propose one alternative design and when you'd choose it.
+- **Failure injection**: pick one failure mode and describe how you'd test it.
+- **Complexity check**: time + space + goroutine count under load.
+
+## Code Review Checklist (Mentor Should Enforce)
+- **State ownership**: who owns each piece of mutable state? who can mutate it?
+- **Cancellation**: are goroutines stoppable (context/close channels/timeouts)?
+- **Backpressure**: what happens if downstream is slow? bounded queues?
+- **Idempotency**: can operations be safely retried? how are duplicates handled?
+- **Time**: is time mocked/controlled in tests? do we depend on wall-clock?
+- **Interfaces**: are public APIs small and stable? is the package boundary clean?
+
+## Growth Areas to Intentionally Hit in This Repo (Roadmap Constraints)
+- At least one example each of:
+  - **Worker pool** vs goroutine-per-conn trade-off
+  - **Channels** vs mutex trade-off
+  - **Streaming protocol** parsing (framing, partial reads, buffering)
+  - **Timeouts & deadlines** (context)
+  - **Benchmark-driven optimization** (pprof, allocations, lock contention)
+
+## Weekly Mock Interview (End of Each Week)
+At the end of each week, student answers these 8 questions (like a real interview):
+
+1. **"Walk me through what you built this week."**
+   - 2-minute overview (problem → design → results)
+   
+2. **"Why did you choose [specific design choice]?"**
+   - Must articulate trade-offs (latency vs consistency, simplicity vs perf, etc.)
+   
+3. **"What happens if [failure scenario]?"**
+   - Pick 2 failure modes: network partition, slow replica, crash mid-write, etc.
+   
+4. **"How would you scale this to 10K nodes?"**
+   - Identify bottlenecks and propose solutions
+   
+5. **"What's the time/space complexity of [key operation]?"**
+   - Must explain Big-O and why it matters
+   
+6. **"How would you test this in production?"**
+   - Observability, metrics, canary rollouts, chaos testing
+   
+7. **"What would you do differently if starting over?"**
+   - What you over-engineered, what you under-estimated
+   
+8. **"Explain [concept] to a junior engineer."**
+   - Pick one: LRU eviction, replication lag, consensus, TTL, etc.
+
+**Mentor grades each answer:**
+- ✅ Strong (clear, complete, shows depth)
+- ⚠️ Weak (vague, missing trade-offs, no failure thinking)
+- ❌ Needs work (incorrect, can't explain, no examples)
+
+**Save answers in:** `vibing-history/mock-interviews/week-N.md`
+
+## "Explain Before Done" Checkpoint (Before Marking Feature Complete)
+Before marking ANY feature as "done," mentor asks 3 random questions from this list:
+
+**Design Questions:**
+- Why did you choose X over Y? (e.g., channels vs mutex, sync vs async)
+- What's the worst-case behavior? (latency, memory, goroutines)
+- How does this interact with [other component]?
+
+**Failure Questions:**
+- What happens if this goroutine panics?
+- What happens if the network is slow/partitioned?
+- What happens if a client sends malformed data?
+- What happens on crash/restart?
+
+**Scale Questions:**
+- How does this behave with 1M keys? 1K replicas?
+- Where's the bottleneck? (CPU, memory, network, locks)
+- How would you shard/distribute this?
+
+**Testing Questions:**
+- How do you test this deterministically?
+- What edge cases did you cover?
+- How do you test failure scenarios?
+
+**Student must answer 3/3 correctly to mark feature "done."** If answer is weak:
+- ⚠️ Mentor explains the gap
+- Student fixes code/tests to address it
+- Re-test with 2 new questions
+
+This simulates the follow-up questions interviewers ALWAYS ask.
+
+## Complexity Analysis Ritual (For Every Algorithm/Data Structure)
+For every non-trivial algorithm or data structure, document:
+
+```
+Component: [e.g., LRU Cache, Replication Queue]
+
+Time Complexity:
+- Best case: O(?) - when?
+- Average case: O(?) - typical scenario
+- Worst case: O(?) - what triggers this?
+
+Space Complexity:
+- O(?) - what dominates? (keys, values, metadata, goroutines)
+
+Concurrency:
+- Goroutines: [fixed pool / per-connection / per-operation]
+- Locks: [read-heavy / write-heavy / lock-free]
+- Contention: [low / medium / high] - why?
+
+Why This Matters:
+- [1-2 sentences on why this complexity is acceptable for the use case]
+- [What would break if we used a simpler/slower approach?]
+```
+
+**Save in:** `vibing-history/complexity-analysis.md` (append after each milestone)
+
+**Mentor enforces:**
+- Must fill this out BEFORE code review
+- Must explain in interview format (not just copy Big-O notation)
+- Must connect to real-world behavior (e.g., "O(n) scan is fine because n < 1000 replicas")

@@ -80,6 +80,10 @@ func (s *Slave) apply(op *Operation) {
 	case OpFlush:
 		s.cache.Flush()
 		log.Printf("Applied FLUSH")
+	case OpPing:
+		log.Printf("Received PING from master")
+	default:
+		log.Printf("Unknown operation: %s", op.Type)
 	}
 }
 

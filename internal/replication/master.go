@@ -20,6 +20,7 @@ type SlaveConnection struct {
 	conn   net.Conn
 	writer *bufio.Writer
 	mu     sync.Mutex // Protects writer
+	health *HealthMonitor
 }
 
 func NewMaster(c *cache.Cache) *Master {
@@ -29,6 +30,7 @@ func NewMaster(c *cache.Cache) *Master {
 	}
 }
 
+// Cache functions
 // Set wraps cache.SetWithTTL and broadcasts to slaves
 func (m *Master) Set(key, value string, ttl time.Duration) error {
 	m.cache.SetWithTTL(key, value, ttl)
@@ -84,6 +86,32 @@ func (m *Master) broadcast(op *Operation) {
 	}
 }
 
+// Heartbeat functions
+func (m *Master) StartHeartbeatForSlave(pingInterval time.Duration, maxMissedHeartbeats int) {
+	ticker := time.NewTicker(pingInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		m.mu.RLock()
+		slaves := make([]*SlaveConnection, len(m.slaves))
+		copy(slaves, m.slaves)
+		m.mu.RUnlock()
+		for _, slave := range slaves {
+			go func(s *SlaveConnection) {
+				op := &Operation{Type: OpPing, Timestamp: time.Now().Unix()}
+				if err := s.Send(op); err != nil {
+					s.health.RecordFailure()
+					if !s.health.IsHealthy() {
+						m.removeSlave(s)
+					}
+				} else {
+					s.health.RecordSuccess()
+				}
+			}(slave)
+		}
+	}
+}
+
 // ListenForSlaves accepts slave connections on the given port
 func (m *Master) ListenForSlaves(port string) error {
 	listener, err := net.Listen("tcp", port)
@@ -104,28 +132,36 @@ func (m *Master) ListenForSlaves(port string) error {
 
 // addSlave adds a new slave connection
 func (m *Master) addSlave(conn net.Conn) {
-	slave := &SlaveConnection{conn: conn, writer: bufio.NewWriter(conn)}
-    
-    // Send all existing data first
-    m.mu.RLock()
-    keys := m.cache.Keys()
-    m.mu.RUnlock()
-    
-    for _, key := range keys {
-        value, ttl, found := m.cache.GetWithTTL(key)
-        if found {
-            op := &Operation{
-                Type: OpSet, Key: key, Value: value, TTL: ttl,
-                Timestamp: time.Now().Unix(),
-            }
-            slave.Send(op)
-        }
-    }
-    
-    // Now add to slave list for ongoing replication
-    m.mu.Lock()
-    m.slaves = append(m.slaves, slave)
-    m.mu.Unlock()
+	slave := &SlaveConnection{
+		conn:   conn,
+		writer: bufio.NewWriter(conn),
+		health: NewHealthMonitor(5*time.Second, 3),
+	}
+
+	// Send all existing data first
+	m.mu.RLock()
+	keys := m.cache.Keys()
+	m.mu.RUnlock()
+
+	for _, key := range keys {
+		value, ttl, found := m.cache.GetWithTTL(key)
+		if found {
+			op := &Operation{
+				Type: OpSet, Key: key, Value: value, TTL: ttl,
+				Timestamp: time.Now().Unix(),
+			}
+			if err := slave.Send(op); err != nil {
+				log.Printf("Failed to send initial state: %v", err)
+				conn.Close()
+				return
+			}
+		}
+	}
+
+	// Now add to slave list for ongoing replication
+	m.mu.Lock()
+	m.slaves = append(m.slaves, slave)
+	m.mu.Unlock()
 }
 
 // removeSlave removes a disconnected slave

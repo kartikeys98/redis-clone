@@ -322,4 +322,35 @@ Format: `<Number> | <Files Changed> | <Summary of Action> | <Purpose of Action>`
 - Scanner error checking: Must be outside the loop, not inside
 - Read-only slaves: Standard pattern for master-slave replication (single source of truth)
 
+25 | internal/replication/health.go | Implemented HealthMonitor utility for tracking slave connection health | Enable master to detect and remove unhealthy slaves based on heartbeat failures
+
+26 | internal/replication/master.go | Added heartbeat mechanism with StartHeartbeatForSlave() and health monitoring integration | Enable periodic health checks (PING every 5 seconds), track missed heartbeats, auto-remove unhealthy slaves
+
+**Features Implemented:**
+- HealthMonitor struct: Thread-safe health tracking with lastHeartbeat, missedHeartbeats, threshold, maxMissedHeartbeats
+- Heartbeat mechanism: Master sends PING to all slaves every 5 seconds via StartHeartbeatForSlave() goroutine
+- Health tracking: RecordSuccess() on successful PING, RecordFailure() on error
+- Auto-removal: Slaves removed from m.slaves list if unhealthy (3 consecutive failures or threshold exceeded)
+- Thread-safe: RWMutex for HealthMonitor, proper locking in StartHeartbeatForSlave() to copy slaves slice on each tick
+
+**Test Coverage:**
+- All existing tests still passing (47/47)
+- 0 race conditions detected with race detector
+- Health monitoring verified through end-to-end testing
+
+**Key Design Decisions:**
+- Health tracking only via heartbeats (not via Send() operations) - Policy A: heartbeat-only health
+- Copy slaves slice inside ticker loop (not outside) to monitor newly added slaves
+- RecordSuccess() only called on successful PING send, RecordFailure() on error
+- Send() method does NOT call RecordSuccess() (avoids TCP buffer acceptance != slave alive issue)
+- Default threshold: 15 seconds, maxMissedHeartbeats: 3
+
+**Key Learnings:**
+- TCP buffer acceptance doesn't mean slave is alive (write success != health)
+- Application-level PING/PONG needed for robust health checks (Week 3 Day 2)
+- Health monitoring must be separate from data replication (separation of concerns)
+- Copy shared slices inside loops to avoid race conditions with concurrent modifications
+- Heartbeat-only health tracking is simpler and more predictable than per-operation tracking
+- Async replication trade-off: Low latency but unbounded goroutines if slaves are slow
+
 

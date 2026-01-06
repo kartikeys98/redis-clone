@@ -51,7 +51,6 @@ func (s *Server) Start() error {
 	switch s.role {
 	case "master":
 		go s.master.ListenForSlaves(fmt.Sprintf(":%d", s.replicationPort))
-		go s.master.StartHeartbeatForSlave(5*time.Second, 3)
 	case "slave":
 		if err := s.slave.ConnectToMaster(); err != nil {
 			log.Printf("Error connecting to master: %v", err)

@@ -26,14 +26,12 @@ func NewHealthMonitor(threshold time.Duration, maxMissedHeartbeats int) *HealthM
 func(h *HealthMonitor) IsHealthy() bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	return h.missedHeartbeats < h.maxMissedHeartbeats && h.TimeSinceLastHeartbeat() < h.threshold
+	return h.missedHeartbeats < h.maxMissedHeartbeats //&& h.timeSinceLastHeartbeat() < h.threshold
 }
 
-func(h *HealthMonitor) TimeSinceLastHeartbeat() time.Duration {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-	return time.Since(h.lastHeartbeat)
-}
+// func(h *HealthMonitor) timeSinceLastHeartbeat() time.Duration { // Why unexported?
+// 	return time.Since(h.lastHeartbeat)
+// }
 
 func(h *HealthMonitor) RecordSuccess() {
 	h.mu.Lock()

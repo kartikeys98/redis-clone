@@ -353,4 +353,38 @@ Format: `<Number> | <Files Changed> | <Summary of Action> | <Purpose of Action>`
 - Heartbeat-only health tracking is simpler and more predictable than per-operation tracking
 - Async replication trade-off: Low latency but unbounded goroutines if slaves are slow
 
+27 | internal/replication/master.go, internal/replication/slave.go, internal/replication/health.go, internal/replication/health_test.go | Implemented application-level PING/PONG heartbeat protocol with graceful shutdown and unit tests | Complete Week 3 Day 2: Enhanced replication with robust health monitoring, proper goroutine lifecycle management, and comprehensive test coverage
+
+**Features Implemented:**
+- Application-level PING/PONG protocol: Master sends PING with timestamp, slave responds with PONG echoing timestamp
+- Per-slave heartbeat goroutine: Each slave connection has dedicated goroutine for heartbeat monitoring (scalable pattern)
+- Graceful shutdown: `stopHeartbeat` channel signals goroutine exit, `closeOnce` prevents double-removal
+- Non-blocking PONG sends: `select/default` pattern prevents `ListenForPongs()` from blocking on full channel
+- HealthMonitor improvements: Removed time-based threshold check, now uses strict count-based failure tracking (3 failures = unhealthy)
+- Timestamp validation: Master validates PONG timestamp matches PING timestamp to detect stale responses
+- Unit tests: 6 comprehensive tests for HealthMonitor (initial state, threshold, recovery, concurrency)
+
+**Test Coverage:**
+- ✅ 6 new unit tests for HealthMonitor (all passing with race detector)
+- ✅ All existing integration tests still passing
+- ✅ Manual testing verified: Healthy slave stays connected, dead slave removed after 3 failures
+- ✅ 0 race conditions detected
+
+**Key Design Decisions:**
+- Per-slave goroutine pattern (Option 2) chosen over global heartbeat loop for scalability
+- Strict count-based health (removed threshold check) - requires exactly N consecutive failures
+- Non-blocking channel sends prevent goroutine leaks when receiver not ready
+- Inner select includes `stopHeartbeat` case for immediate shutdown during PONG wait
+- `closeOnce.Do()` prevents race conditions when multiple paths try to remove same slave
+- HealthMonitor fields cleaned up: Removed unused `threshold` and `lastHeartbeat` (kept for potential future use)
+
+**Key Learnings:**
+- `select/default` pattern for non-blocking channel operations (prevents goroutine leaks)
+- `sync.Once` for idempotent cleanup operations (prevents double-close panics)
+- Graceful goroutine shutdown: Signal via channel close, listen in select statement
+- Testing trade-offs: Unit test deterministic logic (HealthMonitor), integration test timing/network code
+- Count-based vs time-based health: Count-based is simpler and more predictable for heartbeat failures
+- Timestamp matching prevents accepting stale PONGs from previous heartbeats
+- Per-connection goroutines scale better than global loops (each slave independent)
+
 

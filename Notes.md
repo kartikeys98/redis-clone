@@ -60,3 +60,15 @@
         “NewWriter needs something that can Write([]byte)”
         “conn can Write([]byte)”
         “ok, pass it”
+13. Note: when writing to a connection; always lock it so it doesn't result in race condition - Hence it's better to use a connection buffer so it's easy to take lock from different parts of code.
+14. sync.Once for code that should only execute once. Internally it uses a done flag and a mutex.
+15. Channel: 
+    a. Closing a channel i.e. close(chan) -> sends events to all gorutines listening on that channel
+    b. Listening on a channel -> only sends event to a single goroutine even if multiple are listening.
+    c. Non blocking channel pattern using default case in select i.e.
+    select {
+    case s.pongReceived <- op.Timestamp:
+        // Successfully sent
+    default:
+        // Receiver not ready, drop this late pong
+    }

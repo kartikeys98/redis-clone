@@ -15,6 +15,7 @@ type Slave struct {
 	masterAddr string
 	conn       net.Conn
 	mu         sync.RWMutex
+	buffer     *bufio.Writer
 }
 
 func NewSlave(c *cache.Cache, masterAddr string) *Slave {
@@ -31,6 +32,7 @@ func (s *Slave) ConnectToMaster() error {
 		return err
 	}
 	s.conn = conn
+	s.buffer = bufio.NewWriter(conn)
 	log.Printf("Connected to master: %s", s.masterAddr)
 	return nil
 }
@@ -82,6 +84,8 @@ func (s *Slave) apply(op *Operation) {
 		log.Printf("Applied FLUSH")
 	case OpPing:
 		log.Printf("Received PING from master")
+		op1 := &Operation{Type: OpPong, Timestamp: op.Timestamp}
+		s.send(op1)
 	default:
 		log.Printf("Unknown operation: %s", op.Type)
 	}
@@ -99,6 +103,21 @@ func (s *Slave) Close() error {
 
 	if s.conn != nil {
 		return s.conn.Close()
+	}
+	return nil
+}
+
+
+func (s* Slave) send(op *Operation) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, err := s.buffer.WriteString(op.String())
+	if err != nil {
+		return err
+	}
+	err = s.buffer.Flush()
+	if err != nil {
+		return err
 	}
 	return nil
 }

@@ -17,10 +17,13 @@ type Master struct {
 }
 
 type SlaveConnection struct {
-	conn   net.Conn
-	writer *bufio.Writer
-	mu     sync.Mutex // Protects writer
-	health *HealthMonitor
+	conn          net.Conn
+	writer        *bufio.Writer
+	mu            sync.RWMutex
+	health        *HealthMonitor
+	pongReceived  chan int64
+	stopHeartbeat chan struct{}
+	closeOnce     sync.Once
 }
 
 func NewMaster(c *cache.Cache) *Master {
@@ -80,34 +83,75 @@ func (m *Master) broadcast(op *Operation) {
 	for _, slave := range slaves {
 		go func(s *SlaveConnection) {
 			if err := s.Send(op); err != nil {
-				m.removeSlave(s)
+				//m.removeSlave(s)
+				log.Printf("Failed to send operation to slave: %s", s.conn.RemoteAddr())
 			}
 		}(slave)
 	}
 }
 
+// Goroutine 1: Listen for PONGs
+func (s *SlaveConnection) ListenForPongs() {
+	scanner := bufio.NewScanner(s.conn)
+	for scanner.Scan() {
+		op, err := ParseOperation(scanner.Text())
+		if err == nil && op.Type == OpPong {
+			select {
+			case s.pongReceived <- op.Timestamp:
+				// Successfully sent
+			default:
+				// Receiver not ready, drop this late pong
+			}
+		}
+	}
+	close(s.pongReceived)
+}
+
 // Heartbeat functions
-func (m *Master) StartHeartbeatForSlave(pingInterval time.Duration, maxMissedHeartbeats int) {
+func (m *Master) StartHeartbeatForSlave(s *SlaveConnection, pingInterval time.Duration, maxMissedHeartbeats int) {
 	ticker := time.NewTicker(pingInterval)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		m.mu.RLock()
-		slaves := make([]*SlaveConnection, len(m.slaves))
-		copy(slaves, m.slaves)
-		m.mu.RUnlock()
-		for _, slave := range slaves {
-			go func(s *SlaveConnection) {
-				op := &Operation{Type: OpPing, Timestamp: time.Now().Unix()}
-				if err := s.Send(op); err != nil {
+	for {
+		select {
+		case <-s.stopHeartbeat:
+			return
+		case <-ticker.C:
+			timestamp := time.Now().Unix()
+			op := &Operation{Type: OpPing, Timestamp: timestamp}
+			if err := s.Send(op); err != nil {
+				log.Printf("Heartbeat failed for slave: %s", s.conn.RemoteAddr())
+				s.health.RecordFailure()
+				if !s.health.IsHealthy() {
+					m.removeSlave(s)
+					return
+				}
+				// If threshold not breached, continue for next tick
+				continue
+			}
+			select {
+			case <-s.stopHeartbeat:
+				return
+			case pongTimestamp := <-s.pongReceived:
+				if pongTimestamp != timestamp {
+					log.Printf("Pong timestamp mismatch for slave: %s", s.conn.RemoteAddr())
 					s.health.RecordFailure()
 					if !s.health.IsHealthy() {
 						m.removeSlave(s)
+						return
 					}
 				} else {
+					log.Printf("Slave is healthy: %s", s.conn.RemoteAddr())
 					s.health.RecordSuccess()
 				}
-			}(slave)
+			case <-time.After(pingInterval):
+				log.Printf("Heartbeat failed for slave: %s", s.conn.RemoteAddr())
+				s.health.RecordFailure()
+				if !s.health.IsHealthy() {
+					m.removeSlave(s)
+					return
+				}
+			}
 		}
 	}
 }
@@ -133,9 +177,11 @@ func (m *Master) ListenForSlaves(port string) error {
 // addSlave adds a new slave connection
 func (m *Master) addSlave(conn net.Conn) {
 	slave := &SlaveConnection{
-		conn:   conn,
-		writer: bufio.NewWriter(conn),
-		health: NewHealthMonitor(5*time.Second, 3),
+		conn:          conn,
+		writer:        bufio.NewWriter(conn),
+		health:        NewHealthMonitor(5*time.Second, 3),
+		pongReceived:  make(chan int64),
+		stopHeartbeat: make(chan struct{}),
 	}
 
 	// Send all existing data first
@@ -162,21 +208,29 @@ func (m *Master) addSlave(conn net.Conn) {
 	m.mu.Lock()
 	m.slaves = append(m.slaves, slave)
 	m.mu.Unlock()
+
+	// Add health monitoring
+	go m.StartHeartbeatForSlave(slave, 5*time.Second, 3)
+	go slave.ListenForPongs()
 }
 
 // removeSlave removes a disconnected slave
 func (m *Master) removeSlave(slave *SlaveConnection) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	log.Printf("Slave is unhealthy, removing: %s", slave.conn.RemoteAddr())
+	slave.closeOnce.Do(func() {
+		m.mu.Lock()
+		defer m.mu.Unlock()
 
-	for i, s := range m.slaves {
-		if s == slave {
-			m.slaves = append(m.slaves[:i], m.slaves[i+1:]...)
-			break
+		for i, s := range m.slaves {
+			if s == slave {
+				m.slaves = append(m.slaves[:i], m.slaves[i+1:]...)
+				break
+			}
 		}
-	}
-	slave.conn.Close()
-	log.Printf("Slave disconnected: %s (total: %d)", slave.conn.RemoteAddr(), len(m.slaves))
+		slave.conn.Close()
+		log.Printf("Slave disconnected: %s (total: %d)", slave.conn.RemoteAddr(), len(m.slaves))
+		close(slave.stopHeartbeat)
+	})
 }
 
 // Send sends an operation to this slave

@@ -1,13 +1,13 @@
 # Current Status - Quick Context for New Conversations
 
-**Last Updated:** Week 3, Day 1 (Master-Slave Replication + Health Monitoring) Completed
+**Last Updated:** Week 3, Day 2 (Enhanced Replication - PING/PONG Heartbeat) Completed
 
 ---
 
 ## 🎯 Where We Are
 
 **Current Week:** Week 3 - Replication & Fault Tolerance  
-**Current Day:** Day 1 ✅ Master-Slave Replication COMPLETED  
+**Current Day:** Day 2 ✅ Enhanced Replication (PING/PONG Heartbeat) COMPLETED  
 **Role:** Instructor mode - Student codes, I guide and review
 
 ---
@@ -186,6 +186,58 @@ func (c *Cache) Close()  // Stops background goroutine
 
 **Day 1: Master-Slave Replication + Health Monitoring ✅ COMPLETED**
 
+**Day 2: Enhanced Replication - PING/PONG Heartbeat ✅ COMPLETED**
+
+**Files:**
+- `internal/replication/master.go` - Enhanced with application-level PING/PONG, graceful shutdown
+- `internal/replication/slave.go` - Added PONG response handler with timestamp echoing
+- `internal/replication/health.go` - Simplified to count-based health tracking
+- `internal/replication/health_test.go` - 6 comprehensive unit tests
+
+**Implementation:**
+```go
+// Per-slave heartbeat goroutine
+func (m *Master) StartHeartbeatForSlave(s *SlaveConnection, ...) {
+    for {
+        select {
+        case <-s.stopHeartbeat:  // Graceful shutdown
+            return
+        case <-ticker.C:
+            // Send PING, wait for PONG with timeout
+            // Validate timestamp, track health
+        }
+    }
+}
+
+// Slave responds to PING
+case OpPing:
+    op := &Operation{Type: OpPong, Timestamp: op.Timestamp}  // Echo timestamp
+    s.writer.WriteString(op.String())
+```
+
+**Key Features:**
+- Application-level PING/PONG protocol (not just TCP)
+- Per-slave heartbeat goroutine (scalable pattern)
+- Graceful shutdown with `stopHeartbeat` channel
+- Non-blocking PONG sends (`select/default` pattern)
+- Strict count-based health (3 failures = unhealthy)
+- Timestamp validation prevents stale PONGs
+- Thread-safe with `closeOnce` for double-removal protection
+
+**Tests:**
+- ✅ 6 unit tests for HealthMonitor (threshold, recovery, concurrency)
+- ✅ All integration tests still passing
+- ✅ Manual testing verified: Healthy slave stays connected, dead slave removed after 3 failures
+- ✅ 0 race conditions detected
+
+**Key Concepts Learned:**
+- `select/default` for non-blocking channel operations
+- `sync.Once` for idempotent cleanup
+- Graceful goroutine shutdown patterns
+- Testing trade-offs: Unit test logic, integration test timing/network
+- Per-connection goroutines vs global loops (scalability)
+- Count-based vs time-based health checks
+
 **Files:**
 - `internal/replication/protocol.go` - Replication protocol with Operation struct
 - `internal/replication/protocol_test.go` - Protocol serialization tests
@@ -256,11 +308,10 @@ func (s *Slave) StartReplication() {
 
 ### Week 3: Replication & Fault Tolerance (Continued)
 
-**Day 2: Enhanced Replication (Monitoring, Health Checks)**
-- Application-level PING/PONG protocol (fix TCP buffer != slave alive issue)
-- Replication lag monitoring
+**Day 3: Replication Monitoring & Status**
+- Replication lag monitoring (track how far behind each slave is)
 - Replication status commands (INFO replication)
-- Improved health check robustness
+- Metrics and observability improvements
 
 **Day 4-5: Failure Detection & Manual Failover**
 - Heartbeat mechanism
